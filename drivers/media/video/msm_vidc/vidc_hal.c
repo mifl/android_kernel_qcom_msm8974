@@ -248,7 +248,7 @@ static int read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 	struct vidc_iface_q_info *qinfo;
 
 	if (!info || !packet || !pb_tx_req_is_set) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	}
 
@@ -311,11 +311,11 @@ static int vidc_hal_alloc(void *mem, void *clnt, u32 size, u32 align, u32 flags,
 	int rc = 0;
 
 	if (!mem || !clnt || !size) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	}
 	vmem = (struct vidc_mem_addr *)mem;
-	dprintk(VIDC_WARN, "start to alloc: size:%d, Flags: %d", size, flags);
+	dprintk(VIDC_INFO, "start to alloc: size:%d, Flags: %d", size, flags);
 
 	alloc  = msm_smem_alloc(clnt, size, align, flags, domain, 1, 1);
 	dprintk(VIDC_DBG, "Alloc done");
@@ -390,7 +390,7 @@ static int vidc_hal_iface_cmdq_write(struct hal_device *device, void *pkt)
 	int result = -EPERM;
 
 	if (!device || !pkt) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	}
 
@@ -422,7 +422,7 @@ int vidc_hal_iface_msgq_read(struct hal_device *device, void *pkt)
 	struct vidc_iface_q_info *q_info;
 
 	if (!pkt) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	}
 	spin_lock(&device->read_lock);
@@ -456,7 +456,7 @@ int vidc_hal_iface_dbgq_read(struct hal_device *device, void *pkt)
 	struct vidc_iface_q_info *q_info;
 
 	if (!pkt) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	}
 	spin_lock(&device->read_lock);
@@ -778,7 +778,7 @@ static void vidc_hal_core_clear_interrupt(struct hal_device *device)
 			"times: %d interrupt_status: %d",
 			(u32) device, ++device->reg_count, intr_status);
 	} else {
-		dprintk(VIDC_WARN, "SPURIOUS_INTR for device: 0x%x: "
+		dprintk(VIDC_INFO, "SPURIOUS_INTR for device: 0x%x: "
 			"times: %d interrupt_status: %d",
 			(u32) device, ++device->spur_count, intr_status);
 	}
@@ -1632,7 +1632,7 @@ void *vidc_hal_session_init(void *device, u32 session_id,
 	if (device) {
 		dev = device;
 	} else {
-		dprintk(VIDC_ERR, ":invalid device");
+		dprintk(VIDC_ERR, "invalid device");
 		return NULL;
 	}
 
@@ -1667,7 +1667,7 @@ static int vidc_hal_send_session_cmd(void *session_id,
 	if (session_id) {
 		session = session_id;
 	} else {
-		dprintk(VIDC_ERR, ":invalid session");
+		dprintk(VIDC_ERR, "invalid session");
 		return -ENODEV;
 	}
 
@@ -1703,7 +1703,7 @@ int vidc_hal_session_set_buffers(void *sess,
 	struct hal_session *session;
 
 	if (!sess || !buffer_info) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	} else {
 		session = sess;
@@ -1767,7 +1767,7 @@ int vidc_hal_session_release_buffers(void *sess,
 	struct hal_session *session;
 
 	if (!sess || !buffer_info) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	} else {
 		session = sess;
@@ -1859,7 +1859,7 @@ int vidc_hal_session_etb(void *sess, struct vidc_frame_data *input_frame)
 	struct hal_session *session;
 
 	if (!sess || !input_frame) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	} else {
 		session = sess;
@@ -1917,7 +1917,7 @@ int vidc_hal_session_ftb(void *sess,
 	struct hal_session *session;
 
 	if (!sess || !output_frame) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	} else {
 		session = sess;
@@ -1949,7 +1949,7 @@ int vidc_hal_session_parse_seq_hdr(void *sess,
 	struct hal_session *session;
 
 	if (!sess || !seq_hdr) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	} else {
 		session = sess;
@@ -1976,7 +1976,7 @@ int vidc_hal_session_get_seq_hdr(void *sess,
 	struct hal_session *session;
 
 	if (!sess || !seq_hdr) {
-		dprintk(VIDC_ERR, "Invalid Params in ");
+		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	} else {
 		session = sess;
@@ -2003,7 +2003,7 @@ int vidc_hal_session_get_buf_req(void *sess)
 	if (sess) {
 		session = sess;
 	} else {
-		dprintk(VIDC_ERR, ":invalid session");
+		dprintk(VIDC_ERR, "invalid session");
 		return -ENODEV;
 	}
 
@@ -2026,7 +2026,7 @@ int vidc_hal_session_flush(void *sess, enum hal_flush flush_mode)
 	if (sess) {
 		session = sess;
 	} else {
-		dprintk(VIDC_ERR, ":invalid session");
+		dprintk(VIDC_ERR, "invalid session");
 		return -ENODEV;
 	}
 
