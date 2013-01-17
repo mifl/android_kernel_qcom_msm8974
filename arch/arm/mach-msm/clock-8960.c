@@ -6373,7 +6373,7 @@ static void __init reg_init(void)
 		writel_relaxed(0x3C7097F9, AHB_EN2_REG);
 	}
 
-	if (cpu_is_apq8064() || cpu_is_apq8064ab())
+	if (soc_class_is_apq8064())
 		rmwreg(0x00000000, AHB_EN3_REG, 0x00000001);
 
 	/* Deassert all locally-owned MM AHB resets. */
@@ -6396,7 +6396,7 @@ static void __init reg_init(void)
 	rmwreg(0x0027FCFF, MAXI_EN3_REG, 0x003FFFFF);
 	rmwreg(0x0027FCFF, MAXI_EN4_REG, 0x017FFFFF);
 
-	if (cpu_is_apq8064() || cpu_is_apq8064ab())
+	if (soc_class_is_apq8064())
 		rmwreg(0x019FECFF, MAXI_EN5_REG, 0x01FFEFFF);
 	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627() ||
 	    cpu_is_msm8930ab())
@@ -6433,8 +6433,7 @@ static void __init reg_init(void)
 	rmwreg(0x80FF0000, VFE_CC_REG,        0xE0FF4010);
 	rmwreg(0x800000FF, VFE_CC2_REG,       0xE00000FF);
 	rmwreg(0x80FF0000, VPE_CC_REG,        0xE0FF0010);
-	if (cpu_is_msm8960ab() || cpu_is_msm8960() || cpu_is_apq8064()
-		 || cpu_is_apq8064ab()) {
+	if (cpu_is_msm8960ab() || cpu_is_msm8960() || soc_class_is_apq8064()) {
 		rmwreg(0x80FF0000, DSI2_BYTE_CC_REG,  0xE0FF0010);
 		rmwreg(0x80FF0000, DSI2_PIXEL_CC_REG, 0xE0FF0010);
 		rmwreg(0x80FF0000, JPEGD_CC_REG,      0xE0FF0010);
@@ -6452,7 +6451,7 @@ static void __init reg_init(void)
 		rmwreg(0x80FF0000, GFX2D0_CC_REG,     0xE0FF0010);
 		rmwreg(0x80FF0000, GFX2D1_CC_REG,     0xE0FF0010);
 	}
-	if (cpu_is_apq8064() || cpu_is_apq8064ab()) {
+	if (soc_class_is_apq8064()) {
 		rmwreg(0x00000000, TV_CC_REG,         0x00004010);
 		rmwreg(0x80FF0000, VCAP_CC_REG,       0xE0FF1010);
 	}
@@ -6463,7 +6462,7 @@ static void __init reg_init(void)
 	 * and wake-up value to max.
 	 */
 	rmwreg(0x0000004F, USB_HS1_HCLK_FS_REG, 0x0000007F);
-	if (cpu_is_apq8064() || cpu_is_apq8064ab()) {
+	if (soc_class_is_apq8064()) {
 		rmwreg(0x0000004F, USB_HS3_HCLK_FS_REG, 0x0000007F);
 		rmwreg(0x0000004F, USB_HS4_HCLK_FS_REG, 0x0000007F);
 	}
@@ -6485,8 +6484,7 @@ static void __init reg_init(void)
 
 	/* Source the dsi_byte_clks from the DSI PHY PLLs */
 	rmwreg(0x1, DSI1_BYTE_NS_REG, 0x7);
-	if (cpu_is_msm8960ab() || cpu_is_msm8960() || cpu_is_apq8064()
-		|| cpu_is_apq8064ab())
+	if (cpu_is_msm8960ab() || cpu_is_msm8960() || soc_class_is_apq8064())
 		rmwreg(0x2, DSI2_BYTE_NS_REG, 0x7);
 
 	/* Source the dsi1_esc_clk from the DSI1 PHY PLLs */
@@ -6496,7 +6494,7 @@ static void __init reg_init(void)
 	 * Source the sata_phy_ref_clk from PXO and set predivider of
 	 * sata_pmalive_clk to 1.
 	 */
-	if (cpu_is_apq8064() || cpu_is_apq8064ab()) {
+	if (soc_class_is_apq8064()) {
 		rmwreg(0, SATA_PHY_REF_CLK_CTL_REG, 0x1);
 		rmwreg(0, SATA_PMALIVE_CLK_CTL_REG, 0x3);
 	}
@@ -6505,7 +6503,7 @@ static void __init reg_init(void)
 	 * TODO: Programming below PLLs and prng_clk is temporary and
 	 *	 needs to be removed after bootloaders program them.
 	 */
-	if (cpu_is_apq8064() || cpu_is_apq8064ab()) {
+	if (soc_class_is_apq8064()) {
 		u32 is_pll_enabled;
 
 		/* Program pxo_src_clk to source from PXO */
@@ -6531,7 +6529,7 @@ static void __init reg_init(void)
 			writel_relaxed(0x2B, PRNG_CLK_NS_REG);
 	}
 
-	if (cpu_is_apq8064()) {
+	if (cpu_is_apq8064() || cpu_is_apq8064aa()) {
 		/* Program PLL15 to 975MHz with ref clk = 27MHz */
 		configure_sr_pll(&pll15_config, &pll15_regs, 0);
 	} else if (cpu_is_apq8064ab()) {
@@ -6568,7 +6566,7 @@ static void __init msm8960_clock_pre_init(void)
 	/* Initialize clock registers. */
 	reg_init();
 
-	if (cpu_is_apq8064() || cpu_is_apq8064ab())
+	if (soc_class_is_apq8064())
 		vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8064;
 
 	/* Detect PLL4 programmed for alternate 491.52MHz clock plan. */
@@ -6612,21 +6610,21 @@ static void __init msm8960_clock_pre_init(void)
 	 * Change the freq tables for and voltage requirements for
 	 * clocks which differ between chips.
 	 */
-	if (cpu_is_apq8064()) {
+	if (cpu_is_apq8064() || cpu_is_apq8064aa())
 		gfx3d_clk.c.fmax = fmax_gfx3d_8064;
-	}
-	if (cpu_is_apq8064ab()) {
+
+	if (cpu_is_apq8064ab())
 		gfx3d_clk.c.fmax = fmax_gfx3d_8064ab;
-	}
+
 	if ((cpu_is_apq8064() &&
 		SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) ||
-		cpu_is_apq8064ab()) {
+		cpu_is_apq8064ab() || cpu_is_apq8064aa()) {
 
 		vcodec_clk.c.fmax = fmax_vcodec_8064v2;
 		ce3_src_clk.c.fmax = fmax_ce3_8064v2;
 		sdc1_clk.c.fmax = fmax_sdc1_8064v2;
 	}
-	if (cpu_is_apq8064() || cpu_is_apq8064ab()) {
+	if (soc_class_is_apq8064()) {
 		ijpeg_clk.c.fmax = fmax_ijpeg_8064;
 		mdp_clk.c.fmax = fmax_mdp_8064;
 		tv_src_clk.c.fmax = fmax_tv_src_8064;
@@ -6699,7 +6697,7 @@ static void __init msm8960_clock_post_init(void)
 	clk_set_rate(&tsif_ref_clk.c, 105000);
 	clk_set_rate(&tssc_clk.c, 27000000);
 	clk_set_rate(&usb_hs1_xcvr_clk.c, 60000000);
-	if (cpu_is_apq8064() || cpu_is_apq8064ab()) {
+	if (soc_class_is_apq8064()) {
 		clk_set_rate(&usb_hs3_xcvr_clk.c, 60000000);
 		clk_set_rate(&usb_hs4_xcvr_clk.c, 60000000);
 	}
