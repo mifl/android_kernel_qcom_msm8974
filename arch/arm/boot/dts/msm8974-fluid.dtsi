@@ -285,8 +285,6 @@
 &pm8941_chg {
 	status = "ok";
 
-	qcom,chg-charging-disabled;
-
 	qcom,chg-chgr@1000 {
 		status = "ok";
 	};
