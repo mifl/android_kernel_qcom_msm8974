@@ -1225,6 +1225,11 @@
 	qcom,bcl {
 		compatible = "qcom,bcl";
 	};
+
+	qcom,ssm {
+		compatible = "qcom,ssm";
+		qcom,channel-name = "SSM_RTR";
+	};
 };
 
 &gdsc_venus {
