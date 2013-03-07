@@ -163,9 +163,9 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 		align = ALIGN(align, SZ_1M);
 	}
 
-	heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
-	if (!(flags & SMEM_SECURE))
-		heap_mask |= ION_HEAP(ION_IOMMU_HEAP_ID);
+	heap_mask = ION_HEAP(ION_IOMMU_HEAP_ID);
+	if (flags & SMEM_SECURE)
+		heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
 
 	hndl = ion_alloc(client->clnt, size, align, heap_mask, flags);
 	if (IS_ERR_OR_NULL(hndl)) {
