@@ -37,6 +37,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/slimport.h>
 
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
@@ -1517,6 +1518,14 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 		delay = DWC3_CHG_DCD_POLL_TIME;
 		break;
 	case USB_CHG_STATE_WAIT_FOR_DCD:
+		if (slimport_is_connected()) {
+			dwc3_chg_block_reset(mdwc);
+			mdwc->charger.chg_type = USB_SDP_CHARGER;
+			mdwc->charger.notify_detection_complete(mdwc->otg_xceiv->otg,
+								&mdwc->charger);
+			return;
+		}
+
 		is_dcd = dwc3_chg_check_dcd(mdwc);
 		tmout = ++mdwc->dcd_retries == DWC3_CHG_DCD_MAX_RETRIES;
 		if (is_dcd || tmout) {
@@ -2044,7 +2053,12 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		mdwc->current_max = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
-		break;
+		/*
+		 * Since setting POWER_SUPPLY_PROP_TYPE doesn't
+		 * do anything bail out here, it's not necessary
+		 * to generate a power supply event.
+		 */
+		return 0;
 	default:
 		return -EINVAL;
 	}
@@ -2567,6 +2581,20 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 
 	/* usb_psy required only for vbus_notifications or charging support */
 	if (msm->ext_xceiv.otg_capability || !msm->charger.charging_disabled) {
+		if (!of_property_read_u32(node,
+					"qcom,dwc-usb3-msm-adc-low-threshold",
+					&adc_low_threshold)) {
+			dev_info(&pdev->dev,
+				"Read platform data for adc low threshold\n");
+		}
+
+		if (!of_property_read_u32(node,
+					"qcom,dwc-usb3-msm-adc-high-threshold",
+					&adc_high_threshold)) {
+			dev_info(&pdev->dev,
+				"Read platform data for adc high threshold\n");
+		}
+
 		msm->usb_psy.name = "usb";
 		msm->usb_psy.type = POWER_SUPPLY_TYPE_USB;
 		msm->usb_psy.supplied_to = dwc3_msm_pm_power_supplied_to;
