@@ -57,7 +57,7 @@ struct mdss_mdp_video_ctx {
 
 	atomic_t vsync_ref;
 	spinlock_t vsync_lock;
-	mdp_vsync_handler_t vsync_handler;
+	struct list_head vsync_handlers;
 };
 
 static inline void mdp_video_write(struct mdss_mdp_video_ctx *ctx,
@@ -99,6 +99,7 @@ int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 				offsets[i], head[i].base);
 		head[i].ref_cnt = 0;
 		head[i].intf_num = i + MDSS_MDP_INTF0;
+		INIT_LIST_HEAD(&head[i].vsync_handlers);
 	}
 
 	mdata->video_intf = head;
@@ -219,12 +220,54 @@ static inline void video_vsync_irq_disable(struct mdss_mdp_ctl *ctl)
 		mdss_mdp_irq_disable(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num);
 }
 
-static int mdss_mdp_video_set_vsync_handler(struct mdss_mdp_ctl *ctl,
-		mdp_vsync_handler_t vsync_handler)
+static int mdss_mdp_video_add_vsync_handler(struct mdss_mdp_ctl *ctl,
+		struct mdss_mdp_vsync_handler *handle)
 {
 	struct mdss_mdp_video_ctx *ctx;
 	unsigned long flags;
-	int need_update;
+	struct mdss_mdp_vsync_handler *tmp;
+	bool exist = false;
+	int ret = 0;
+
+	if (!handle || !(handle->vsync_handler)) {
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
+	if (!ctx) {
+		pr_err("invalid ctx for ctl=%d\n", ctl->num);
+		ret = -ENODEV;
+		goto exit;
+	}
+
+	spin_lock_irqsave(&ctx->vsync_lock, flags);
+	list_for_each_entry(tmp, &(ctx->vsync_handlers), list) {
+		if (tmp->vsync_handler == handle->vsync_handler) {
+			exist = true;
+			tmp->ref_cnt++;
+		}
+	}
+	if (!exist) {
+		handle->ref_cnt = 1;
+		list_add(&handle->list, &ctx->vsync_handlers);
+	}
+
+	video_vsync_irq_enable(ctl);
+	spin_unlock_irqrestore(&ctx->vsync_lock, flags);
+exit:
+	return ret;
+}
+
+/* passing NULL as handle or vsync_handler will clear all handlers */
+static int mdss_mdp_video_remove_vsync_handler(struct mdss_mdp_ctl *ctl,
+		struct mdss_mdp_vsync_handler *handle)
+{
+	struct mdss_mdp_video_ctx *ctx;
+	unsigned long flags;
+	struct mdss_mdp_vsync_handler *tmp, *q;
+	bool exist = true;
+	bool used = false;
 
 	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
 	if (!ctx) {
@@ -233,18 +276,20 @@ static int mdss_mdp_video_set_vsync_handler(struct mdss_mdp_ctl *ctl,
 	}
 
 	spin_lock_irqsave(&ctx->vsync_lock, flags);
-	need_update = (!ctx->vsync_handler && vsync_handler) ||
-			(ctx->vsync_handler && !vsync_handler);
-	ctx->vsync_handler = vsync_handler;
-	spin_unlock_irqrestore(&ctx->vsync_lock, flags);
-
-	if (need_update) {
-		if (vsync_handler)
-			video_vsync_irq_enable(ctl);
-		else
-			video_vsync_irq_disable(ctl);
+	list_for_each_entry_safe(tmp, q, &ctx->vsync_handlers, list) {
+		if (handle && handle->vsync_handler)
+			exist = (tmp->vsync_handler == handle->vsync_handler);
+		if (exist) {
+			tmp->ref_cnt--;
+			if (handle && handle->vsync_handler)
+				used = (tmp->ref_cnt != 0);
+			if (!used) {
+				video_vsync_irq_disable(ctl);
+				list_del_init(&tmp->list);
+			}
+		}
 	}
-
+	spin_unlock_irqrestore(&ctx->vsync_lock, flags);
 	return 0;
 }
 
@@ -281,7 +326,7 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 			ctl->intf_num);
 	}
 
-	mdss_mdp_video_set_vsync_handler(ctl, NULL);
+	mdss_mdp_video_remove_vsync_handler(ctl, NULL);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num,
 				   NULL, NULL);
@@ -298,6 +343,7 @@ static void mdss_mdp_video_vsync_intr_done(void *arg)
 {
 	struct mdss_mdp_ctl *ctl = arg;
 	struct mdss_mdp_video_ctx *ctx = ctl->priv_data;
+	struct mdss_mdp_vsync_handler *tmp;
 	ktime_t vsync_time;
 
 	if (!ctx) {
@@ -314,8 +360,9 @@ static void mdss_mdp_video_vsync_intr_done(void *arg)
 	ctx->polling_en = false;
 	complete_all(&ctx->vsync_comp);
 	spin_lock(&ctx->vsync_lock);
-	if (ctx->vsync_handler)
-		ctx->vsync_handler(ctl, vsync_time);
+	list_for_each_entry(tmp, &ctx->vsync_handlers, list) {
+		tmp->vsync_handler(ctl, vsync_time);
+	}
 	spin_unlock(&ctx->vsync_lock);
 }
 
@@ -525,8 +572,9 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	ctl->stop_fnc = mdss_mdp_video_stop;
 	ctl->display_fnc = mdss_mdp_video_display;
 	ctl->wait_fnc = mdss_mdp_video_wait4comp;
-	ctl->set_vsync_handler = mdss_mdp_video_set_vsync_handler;
 	ctl->read_line_cnt_fnc = mdss_mdp_video_line_count;
+	ctl->add_vsync_handler = mdss_mdp_video_add_vsync_handler;
+	ctl->remove_vsync_handler = mdss_mdp_video_remove_vsync_handler;
 
 	return 0;
 }
