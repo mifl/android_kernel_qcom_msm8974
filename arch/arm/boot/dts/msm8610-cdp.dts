@@ -24,6 +24,38 @@
 	serial@f991e000 {
 		status = "ok";
 	};
+};
+
+&spmi_bus {
+	qcom,pm8110@0 {
+		qcom,leds@a100 {
+			status = "okay";
+			qcom,led_mpp_2 {
+				label = "mpp";
+				linux,name = "button-backlight";
+				linux-default-trigger = "hr-trigger";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,id = <6>;
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x60>;
+			};
+		};
+
+		qcom,leds@a200 {
+			status = "okay";
+			qcom,led_mpp_3 {
+				label = "mpp";
+				linux,name = "wled-backlight";
+				linux-default-trigger = "none";
+				qcom,default-state = "on";
+				qcom,max-current = <40>;
+				qcom,id = <6>;
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x10>;
+			};
+		};
+	};
 
 	gpio_keys {
 		compatible = "gpio-keys";
@@ -54,24 +86,6 @@
 			linux,code = <115>;
 			gpio-key,wakeup;
 			debounce-interval = <15>;
-		};
-	};
-};
-
-&spmi_bus {
-	qcom,pm8110@0 {
-		qcom,leds@a200 {
-			status = "okay";
-			qcom,led_mpp_3 {
-				label = "mpp";
-				linux,name = "wled-backlight";
-				linux-default-trigger = "none";
-				qcom,default-state = "on";
-				qcom,max-current = <40>;
-				qcom,id = <6>;
-				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x10>;
-			};
 		};
 	};
 };
