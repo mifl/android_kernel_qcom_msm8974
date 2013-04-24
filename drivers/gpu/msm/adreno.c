@@ -1720,6 +1720,7 @@ static int adreno_start(struct kgsl_device *device)
 {
 	int status = -EINVAL;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int state = device->state;
 
 	kgsl_cffdump_open(device);
 
@@ -1781,8 +1782,11 @@ error_mmu_off:
 	kgsl_mmu_stop(&device->mmu);
 
 error_clk_off:
-	if (KGSL_STATE_DUMP_AND_FT != device->state)
+	if (KGSL_STATE_DUMP_AND_FT != device->state) {
 		kgsl_pwrctrl_disable(device);
+		/* set the state back to original state */
+		kgsl_pwrctrl_set_state(device, state);
+	}
 
 	return status;
 }
