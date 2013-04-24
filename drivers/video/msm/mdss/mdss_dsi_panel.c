@@ -30,6 +30,8 @@
 
 #define DT_CMD_HDR 6
 
+static bool mdss_panel_flip_ud = false;
+
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 #if defined(CONFIG_BACKLIGHT_LM3630)
@@ -372,6 +374,10 @@ static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 	return 0;
 }
 
+bool mdss_dsi_panel_flip_ud(void)
+{
+	return mdss_panel_flip_ud;
+}
 
 static int mdss_panel_parse_dt(struct platform_device *pdev,
 			       struct mdss_panel_common_pdata *panel_data)
@@ -392,6 +398,10 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	}
 	panel_data->panel_info.xres = (!rc ? res[0] : 640);
 	panel_data->panel_info.yres = (!rc ? res[1] : 480);
+
+	mdss_panel_flip_ud = of_property_read_bool(np, "qcom,mdss-pan-flip-ud");
+	if (mdss_panel_flip_ud)
+		pr_info("%s: Panel FLIP UD\n", __func__);
 
 	rc = of_property_read_u32_array(np, "qcom,mdss-pan-active-res", res, 2);
 	if (rc == 0) {
