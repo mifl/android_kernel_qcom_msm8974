@@ -1534,6 +1534,7 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "failed to read device tree\n");
 		goto fail;
 	}
+	mutex_init(&adc_tm->adc->adc_lock);
 
 	/* Register the ADC peripheral interrupt */
 	adc_tm->adc->adc_high_thr_irq = spmi_get_irq_byname(spmi,
