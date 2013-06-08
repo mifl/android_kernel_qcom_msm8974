@@ -1181,7 +1181,8 @@ int dsi_panel_device_register(struct platform_device *pdev,
 			return rc;
 		}
 
-		mdss_dsi_clk_ctrl(ctrl_pdata, 1);
+		if (ctrl_pdata->panel_data.panel_info.type == MIPI_VIDEO_PANEL)
+			mdss_dsi_clk_ctrl(ctrl_pdata, 1);
 		ctrl_pdata->ctrl_state |=
 			(CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE);
 	}
