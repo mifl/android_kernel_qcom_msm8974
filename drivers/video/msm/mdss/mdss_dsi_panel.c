@@ -207,9 +207,19 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			pr_debug("%s: Reset panel done\n", __func__);
 		}
 	} else {
-		gpio_set_value((ctrl_pdata->rst_gpio), 0);
-		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
-			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
+		if (mdss_panel_id == PANEL_LGE_JDI_ORISE_VIDEO ||
+			mdss_panel_id == PANEL_LGE_JDI_ORISE_CMD ||
+			mdss_panel_id == PANEL_LGE_JDI_NOVATEK_VIDEO ||
+			mdss_panel_id == PANEL_LGE_JDI_NOVATEK_CMD) {
+			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
+				gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
+			msleep(20);
+			gpio_set_value((ctrl_pdata->rst_gpio), 0);
+		} else {
+			gpio_set_value((ctrl_pdata->rst_gpio), 0);
+			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
+				gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
+		}
 	}
 }
 
