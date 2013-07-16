@@ -245,3 +245,4 @@
 };
 
 /include/ "msm-pma8084.dtsi"
+/include/ "msmsamarium-regulator.dtsi"
