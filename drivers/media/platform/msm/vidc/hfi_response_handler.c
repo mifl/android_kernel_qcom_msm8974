@@ -389,6 +389,11 @@ static inline void copy_cap_prop(
 		struct vidc_hal_session_init_done *sess_init_done)
 {
 	struct hal_capability_supported *out = NULL;
+	if (!in || !sess_init_done) {
+		dprintk(VIDC_ERR, "Invalid input Parameter");
+		return;
+	}
+
 	switch (in->capability_type) {
 	case HFI_CAPABILITY_FRAME_WIDTH:
 		out = &sess_init_done->width;
@@ -423,7 +428,7 @@ static inline void copy_cap_prop(
 		break;
 	}
 
-	if (in && out) {
+	if (out) {
 		out->capability_type =
 			(enum hal_capability)in->capability_type;
 		out->min = in->min;
@@ -1022,7 +1027,7 @@ static void hfi_process_session_start_done(
 	if (!pkt || pkt->size !=
 		sizeof(struct hfi_msg_session_start_done_packet)) {
 		dprintk(VIDC_ERR, "hal_process_session_start_done:"
-		"bad packet/packet size: %d", pkt->size);
+		"bad packet/packet size");
 		return;
 	}
 
@@ -1047,7 +1052,7 @@ static void hfi_process_session_stop_done(
 	if (!pkt || pkt->size !=
 		sizeof(struct hfi_msg_session_stop_done_packet)) {
 		dprintk(VIDC_ERR, "hal_process_session_stop_done:"
-		"bad packet/packet size: %d", pkt->size);
+		"bad packet/packet size");
 		return;
 	}
 
@@ -1072,7 +1077,7 @@ static void hfi_process_session_rel_res_done(
 	if (!pkt || pkt->size !=
 		sizeof(struct hfi_msg_session_release_resources_done_packet)) {
 		dprintk(VIDC_ERR, "hal_process_session_rel_res_done:"
-		"bad packet/packet size: %d", pkt->size);
+		"bad packet/packet size");
 		return;
 	}
 
@@ -1094,7 +1099,7 @@ static void hfi_process_session_rel_buf_done(
 	if (!pkt || pkt->size !=
 		sizeof(struct
 			   hfi_msg_session_release_buffers_done_packet)) {
-		dprintk(VIDC_ERR, "bad packet/packet size: %d", pkt->size);
+		dprintk(VIDC_ERR, "bad packet/packet size");
 		return;
 	}
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
@@ -1123,7 +1128,7 @@ static void hfi_process_session_end_done(
 	if (!pkt || pkt->size !=
 		sizeof(struct hfi_msg_sys_session_end_done_packet)) {
 		dprintk(VIDC_ERR, "hal_process_session_end_done: "
-		"bad packet/packet size: %d", pkt->size);
+		"bad packet/packet size");
 		return;
 	}
 
@@ -1170,7 +1175,7 @@ static void hfi_process_session_get_seq_hdr_done(
 	if (!pkt || pkt->size !=
 		sizeof(struct
 		hfi_msg_session_get_sequence_header_done_packet)) {
-		dprintk(VIDC_ERR, "bad packet/packet size: %d", pkt->size);
+		dprintk(VIDC_ERR, "bad packet/packet size");
 		return;
 	}
 	memset(&data_done, 0, sizeof(struct msm_vidc_cb_data_done));
@@ -1270,7 +1275,7 @@ u32 hfi_process_msg_packet(
 	if (!callback || !msg_hdr || msg_hdr->size <
 		VIDC_IFACEQ_MIN_PKT_SIZE) {
 		dprintk(VIDC_ERR, "hal_process_msg_packet:bad"
-			"packet/packet size: %d", msg_hdr->size);
+			"packet/packet size");
 		rc = -EINVAL;
 		return rc;
 	}

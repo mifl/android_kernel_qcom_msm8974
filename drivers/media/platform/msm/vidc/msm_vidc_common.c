@@ -54,7 +54,10 @@ static bool is_turbo_requested(struct msm_vidc_core *core,
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
-
+		if (!inst) {
+			dprintk(VIDC_ERR, "Invalid instance");
+			return false;
+		}
 		mutex_lock(&inst->lock);
 		if (inst->session_type == type &&
 			inst->state >= MSM_VIDC_OPEN_DONE &&
@@ -121,6 +124,10 @@ static int msm_comm_get_load(struct msm_vidc_core *core,
 	}
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
+		if (!inst) {
+			dprintk(VIDC_ERR, "Invalid instance");
+			return -EINVAL;
+		}
 		mutex_lock(&inst->lock);
 		if (inst->session_type == type &&
 			inst->state >= MSM_VIDC_OPEN_DONE &&
@@ -204,7 +211,9 @@ struct msm_vidc_core *get_vidc_core(int core_id)
 	}
 	mutex_lock(&vidc_driver->lock);
 	list_for_each_entry(core, &vidc_driver->cores, list) {
-		if (core && core->id == core_id) {
+		if (!core)
+			break;
+		if (core->id == core_id) {
 			found = 1;
 			break;
 		}
@@ -315,6 +324,10 @@ static void handle_session_release_buf_done(enum command_response cmd,
 	address = (u32) buffer->buffer_addr;
 
 	list_for_each_safe(ptr, next, &inst->internalbufs) {
+		if (!ptr) {
+			dprintk(VIDC_ERR, "Invalid internal buffer\n");
+			return;
+		}
 		buf = list_entry(ptr, struct internal_buf, list);
 		if (address == buf->handle->device_addr) {
 			dprintk(VIDC_DBG, "releasing scratch: 0x%x",
@@ -324,6 +337,10 @@ static void handle_session_release_buf_done(enum command_response cmd,
 	}
 
 	list_for_each_safe(ptr, next, &inst->persistbufs) {
+		if (!ptr) {
+			dprintk(VIDC_ERR, "Invalid persist buffer\n");
+			return;
+		}
 		buf = list_entry(ptr, struct internal_buf, list);
 		if (address == (u32) buf->handle->device_addr) {
 			dprintk(VIDC_DBG, "releasing persist: 0x%x",
@@ -2488,12 +2505,23 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 	struct vidc_frame_data frame_data;
 	struct msm_vidc_core *core;
 	struct hfi_device *hdev;
-	q = vb->vb2_queue;
-	inst = q->drv_priv;
-	if (!inst || !vb) {
-		dprintk(VIDC_ERR, "Invalid input: %p, %p\n", inst, vb);
+
+	if (!vb) {
+		dprintk(VIDC_ERR, "Invalid input: %p\n", vb);
 		return -EINVAL;
 	}
+	q = vb->vb2_queue;
+	if (!q) {
+	        dprintk(VIDC_ERR, "invalid vb2_queue");
+	        return -EINVAL;
+	}
+
+	inst = q->drv_priv;
+	if (!inst) {
+		dprintk(VIDC_ERR, "Invalid input: %p\n", vb);
+		return -EINVAL;
+	}
+
 	core = inst->core;
 	if (!core) {
 		dprintk(VIDC_ERR,
