@@ -1172,6 +1172,7 @@ static int mdss_fb_open(struct fb_info *info, int user)
 			pr_err("unable to start display thread %d\n",
 				mfd->index);
 			result = PTR_ERR(mfd->disp_thread);
+			mfd->disp_thread = NULL;
 			goto thread_error;
 		}
 
