@@ -686,6 +686,29 @@ static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 		 perf->bw_overlap, perf->bw_prefill, perf->prefill_bytes);
 }
 
+static int mdss_mdp_select_clk_lvl(struct mdss_mdp_ctl *ctl,
+			u32 clk_rate)
+{
+	int i;
+	struct mdss_data_type *mdata;
+
+	if (!ctl)
+		return clk_rate;
+
+	mdata = ctl->mdata;
+
+	for (i = 0; i < mdata->nclk_lvl; i++) {
+		if (clk_rate > mdata->clock_levels[i]) {
+			continue;
+		} else {
+			clk_rate = mdata->clock_levels[i];
+			break;
+		}
+	}
+
+	return clk_rate;
+}
+
 static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		int params_changed)
 {
@@ -765,7 +788,7 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 				clk_rate = max(ctl->cur_perf.mdp_clk_rate,
 					       clk_rate);
 		}
-
+		clk_rate  = mdss_mdp_select_clk_lvl(ctl, clk_rate);
 		ATRACE_INT("mdp_clk", clk_rate);
 		mdss_mdp_set_clk_rate(clk_rate);
 		pr_debug("update clk rate = %d HZ\n", clk_rate);
