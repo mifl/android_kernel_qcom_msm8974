@@ -2541,8 +2541,8 @@ int mdss_mdp_footswitch_ctrl_ulps(int on, struct device *dev)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int rc = 0;
 
-	pr_debug("called on=%d\n", on);
-	if (on) {
+	if (on && mdata->ulps) {
+		pr_debug("called on=%d\n", on);
 		pm_runtime_get_sync(dev);
 		rc = mdss_iommu_ctrl(1);
 		if (IS_ERR_VALUE(rc)) {
@@ -2552,7 +2552,8 @@ int mdss_mdp_footswitch_ctrl_ulps(int on, struct device *dev)
 		mdss_hw_init(mdata);
 		mdata->ulps = false;
 		mdss_iommu_ctrl(0);
-	} else {
+	} else if (!on && !mdata->ulps) {
+		pr_debug("called on=%d\n", on);
 		mdata->ulps = true;
 		pm_runtime_put_sync(dev);
 	}
