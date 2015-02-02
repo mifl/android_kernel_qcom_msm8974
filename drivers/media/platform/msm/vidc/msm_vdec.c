@@ -1869,7 +1869,6 @@ int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
 	}
 
 	v4l2_ctrl_cluster(cluster_size, inst->cluster);
-
 	return ret_val;
 }
 
