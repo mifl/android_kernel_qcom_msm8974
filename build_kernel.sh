@@ -21,7 +21,7 @@ export CROSS_COMPILE=arm-eabi-
 ##############################################################################
 
 mkdir -p ./obj/KERNEL_OBJ/
-make ARCH=arm O=./obj/KERNEL_OBJ/ msm8974-perf_defconfig
+make ARCH=arm O=./obj/KERNEL_OBJ/ full_msm8974-perf_defconfig
 make -j4 ARCH=arm O=./obj/KERNEL_OBJ/ 2>&1 | tee kernel_log.txt
 
 ##############################################################################
