@@ -1007,6 +1007,11 @@ tSirRetStatus uMacPostCtrlMsg(void* pSirGlobal, tSirMbMsg* pMb);
 #define WDA_SET_MAX_TX_POWER_REQ       SIR_HAL_SET_MAX_TX_POWER_REQ
 #define WDA_SET_MAX_TX_POWER_RSP       SIR_HAL_SET_MAX_TX_POWER_RSP
 
+#define WDA_SET_MAX_TX_POWER_PER_BAND_REQ \
+        SIR_HAL_SET_MAX_TX_POWER_PER_BAND_REQ
+#define WDA_SET_MAX_TX_POWER_PER_BAND_RSP \
+        SIR_HAL_SET_MAX_TX_POWER_PER_BAND_RSP
+
 #define WDA_SEND_MSG_COMPLETE          SIR_HAL_SEND_MSG_COMPLETE 
 
 /// PE <-> HAL Host Offload message
@@ -1866,9 +1871,10 @@ tANI_U8 WDA_getFwWlanFeatCaps(tANI_U8 featEnumValue);
   PARAMETERS
     pMac : upper MAC context pointer
     displaySnapshot : Display DXE snapshot option
-    enableStallDetect : Enable stall detect feature
-                        This feature will take effect to data performance
-                        Not integrate till fully verification
+    debugFlags      : Enable stall detect features
+                      defined by WPAL_DeviceDebugFlags
+                      These features may effect
+                      data performance.
 
   RETURN VALUE
     NONE
@@ -1878,7 +1884,7 @@ void WDA_TransportChannelDebug
 (
   tpAniSirGlobal pMac,
   v_BOOL_t       displaySnapshot,
-  v_BOOL_t       toggleStallDetect
+  v_U8_t         debugFlags
 );
 
 /*==========================================================================

@@ -629,7 +629,8 @@ VosMCThread
       "%s: MC Thread exiting!!!!", __func__);
   complete_and_exit(&pSchedContext->McShutdown, 0);
 } /* VosMCThread() */
-int isWDresetInProgress(void)
+
+v_BOOL_t isWDresetInProgress(void)
 {
    VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
                 "%s: Reset is in Progress...",__func__);
@@ -639,7 +640,7 @@ int isWDresetInProgress(void)
    }
    else
    {
-      return 0;
+      return FALSE;
    }
 }
 /*---------------------------------------------------------------------------
@@ -659,12 +660,32 @@ VosWDThread
   int retWaitStatus              = 0;
   v_BOOL_t shutdown              = VOS_FALSE;
   VOS_STATUS vosStatus = VOS_STATUS_SUCCESS;
+  hdd_context_t *pHddCtx         = NULL;
+  v_CONTEXT_t pVosContext        = NULL;
   set_user_nice(current, -3);
 
   if (Arg == NULL)
   {
      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
         "%s: Bad Args passed", __func__);
+     return 0;
+  }
+
+  /* Get the Global VOSS Context */
+  pVosContext = vos_get_global_context(VOS_MODULE_ID_SYS, NULL);
+
+  if(!pVosContext)
+  {
+     hddLog(VOS_TRACE_LEVEL_FATAL,"%s: Global VOS context is Null", __func__);
+     return 0;
+  }
+
+  /* Get the HDD context */
+  pHddCtx = (hdd_context_t *)vos_get_context(VOS_MODULE_ID_HDD, pVosContext );
+
+  if(!pHddCtx)
+  {
+     hddLog(VOS_TRACE_LEVEL_FATAL,"%s: HDD context is Null",__func__);
      return 0;
   }
 
@@ -749,6 +770,7 @@ VosWDThread
           goto err_reset;
         }
         pWdContext->resetInProgress = false;
+        complete(&pHddCtx->ssr_comp_var);
       }
       else
       {

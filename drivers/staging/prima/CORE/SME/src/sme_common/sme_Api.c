@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -3297,11 +3297,6 @@ eHalStatus sme_RoamDelPMKIDfromCache( tHalHandle hHal, tANI_U8 sessionId, tANI_U
       }
       sme_ReleaseGlobalLock( &pMac->sme );
    }
-   if ( status >0 )
-   {
-      status = -1;
-   }
-
    return (status);
 }
 
@@ -4029,6 +4024,26 @@ eHalStatus sme_RegisterPowerSaveCheck (
        status = pmcRegisterPowerSaveCheck (hHal, checkRoutine, checkContext);
        sme_ReleaseGlobalLock( &pMac->sme );
    }
+
+   return (status);
+}
+
+/* ---------------------------------------------------------------------------
+    \fn sme_Register11dScanDoneCallback
+    \brief  Register a routine of type csrScanCompleteCallback which is
+            called whenever an 11d scan is done
+    \param  hHal - The handle returned by macOpen.
+    \param  callback -  11d scan complete routine to be registered
+    \return eHalStatus
+  ---------------------------------------------------------------------------*/
+eHalStatus sme_Register11dScanDoneCallback (
+   tHalHandle hHal,
+   csrScanCompleteCallback callback)
+{
+   eHalStatus status = eHAL_STATUS_SUCCESS;
+   tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
+
+   pMac->scan.callback11dScanDone = callback;
 
    return (status);
 }
@@ -4967,6 +4982,41 @@ eHalStatus sme_GenericChangeCountryCode( tHalHandle hHal,
 
     return (status);
 }
+
+/* ---------------------------------------------------------------------------
+
+    \fn sme_InitChannels
+
+    \brief Used to initialize CSR channel lists while driver loading
+
+    \param hHal - global pMac structure
+
+    \return eHalStatus  SUCCESS.
+
+                         FAILURE or RESOURCES  The API finished and failed.
+
+ -------------------------------------------------------------------------------*/
+eHalStatus sme_InitChannels(tHalHandle hHal)
+{
+    eHalStatus          status = eHAL_STATUS_FAILURE;
+    tpAniSirGlobal      pMac = PMAC_STRUCT(hHal);
+
+    if (NULL == pMac)
+    {
+        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_FATAL,
+            "%s: pMac is null", __func__);
+        return status;
+    }
+
+    status = sme_AcquireGlobalLock(&pMac->sme);
+    if (HAL_STATUS_SUCCESS(status))
+    {
+        status = csrInitChannels(pMac);
+        sme_ReleaseGlobalLock(&pMac->sme);
+    }
+    return status;
+}
+
 /* ---------------------------------------------------------------------------
 
     \fn sme_DHCPStartInd
@@ -7188,6 +7238,12 @@ eHalStatus sme_HandleChangeCountryCode(tpAniSirGlobal pMac,  void *pMsgBuf)
 
    /* reset info based on new cc, and we are done */
    csrResetCountryInformation(pMac, eANI_BOOLEAN_TRUE, eANI_BOOLEAN_TRUE);
+   /* Country code  Changed, Purge Only scan result
+    * which does not have channel number belong to 11d
+    * channel list
+    */
+   csrScanFilter11dResult(pMac);
+
 #endif
    if( pMsg->changeCCCallback )
    {
@@ -7301,7 +7357,11 @@ eHalStatus sme_HandleChangeCountryCodeByUser(tpAniSirGlobal pMac,
         pMac->scan.f11dInfoApplied = eANI_BOOLEAN_TRUE;
         pMac->scan.f11dInfoReset = eANI_BOOLEAN_FALSE;
     }
-
+    /* Country code  Changed, Purge Only scan result
+     * which does not have channel number belong to 11d
+     * channel list
+     */
+    csrScanFilter11dResult(pMac);
     // Do active scans after the country is set by User hints or Country IE
     pMac->scan.curScanType = eSIR_ACTIVE_SCAN;
 
@@ -7361,6 +7421,11 @@ eHalStatus sme_HandleChangeCountryCodeByCore(tpAniSirGlobal pMac, tAniGenericCha
             csrInitChannelList(pMac);
         }
     }
+    /* Country code  Changed, Purge Only scan result
+     * which does not have channel number belong to 11d
+     * channel list
+     */
+    csrScanFilter11dResult(pMac);
     smsLog(pMac, LOG1, FL(" returned"));
     return eHAL_STATUS_SUCCESS;
 }
@@ -7859,6 +7924,51 @@ eHalStatus sme_SetMaxTxPower(tHalHandle hHal, tSirMacAddr pBssid,
     {
         VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR, "%s: Not able to post WDA_SET_MAX_TX_POWER_REQ message to WDA", __func__);
         vos_mem_free(pMaxTxParams);
+        return eHAL_STATUS_FAILURE;
+    }
+
+    return eHAL_STATUS_SUCCESS;
+}
+
+/* ---------------------------------------------------------------------------
+
+    \fn sme_SetMaxTxPowerPerBand
+
+    \brief Set the Maximum Transmit Power specific to band dynamically.
+    Note: this setting will not persist over reboots.
+
+    \param band
+    \param power to set in dB
+    \- return eHalStatus
+
+  ----------------------------------------------------------------------------*/
+eHalStatus sme_SetMaxTxPowerPerBand(eCsrBand band, v_S7_t dB)
+{
+    vos_msg_t msg;
+    tpMaxTxPowerPerBandParams pMaxTxPowerPerBandParams = NULL;
+
+    pMaxTxPowerPerBandParams = vos_mem_malloc(sizeof(tMaxTxPowerPerBandParams));
+    if (NULL == pMaxTxPowerPerBandParams)
+    {
+        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR,
+                  "%s:Not able to allocate memory for pMaxTxPowerPerBandParams",
+                  __func__);
+        return eHAL_STATUS_FAILURE;
+    }
+
+    pMaxTxPowerPerBandParams->power = dB;
+    pMaxTxPowerPerBandParams->bandInfo = band;
+
+    msg.type = WDA_SET_MAX_TX_POWER_PER_BAND_REQ;
+    msg.reserved = 0;
+    msg.bodyptr = pMaxTxPowerPerBandParams;
+
+    if (VOS_STATUS_SUCCESS != vos_mq_post_message(VOS_MODULE_ID_WDA, &msg))
+    {
+        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR,
+                  "%s:Not able to post WDA_SET_MAX_TX_POWER_PER_BAND_REQ",
+                  __func__);
+        vos_mem_free(pMaxTxPowerPerBandParams);
         return eHAL_STATUS_FAILURE;
     }
 
