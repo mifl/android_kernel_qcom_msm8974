@@ -1304,7 +1304,7 @@ VOS_STATUS vos_pkt_return_packet( vos_pkt_t *pPacket )
    vos_pkt_get_packet_callback callback;
    v_SIZE_t *pCount;
    VOS_PKT_TYPE packetType = VOS_PKT_TYPE_TX_802_3_DATA;
-   v_BOOL_t lowResource = VOS_FALSE;
+   v_BOOL_t lowResource;
    struct mutex * mlock;
 
    // Validate the input parameter pointer
@@ -1320,6 +1320,7 @@ VOS_STATUS vos_pkt_return_packet( vos_pkt_t *pPacket )
       pNext = pPacket->pNext;
       pPacket->pNext = NULL;
 
+      lowResource = VOS_FALSE;
       // Validate that this really an initialized vos packet
       if (unlikely(VPKT_MAGIC_NUMBER != pPacket->magic))
       {
@@ -2391,7 +2392,7 @@ VOS_STATUS vos_pkt_pop_head( vos_pkt_t *pPacket,
    // Make sure there is enough data to pop
    if (unlikely(skb->len < dataSize))
    {
-      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_FATAL,
+      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_WARN,
                 "VPKT [%d]: pop exceeds packet size, len[%d], req[%d]",
                 __LINE__, skb->len, dataSize);
       return VOS_STATUS_E_INVAL;
@@ -2689,7 +2690,7 @@ VOS_STATUS vos_pkt_pop_tail( vos_pkt_t *pPacket,
    // Make sure there is enough data to pop
    if (unlikely(skb->len < dataSize))
    {
-      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_FATAL,
+      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_WARN,
                 "VPKT [%d]: pop exceeds packet size, len[%d], req[%d]",
                 __LINE__, skb->len, dataSize);
       return VOS_STATUS_E_INVAL;
@@ -2766,7 +2767,7 @@ VOS_STATUS vos_pkt_trim_tail( vos_pkt_t *pPacket,
    // Make sure there is enough data to pop
    if (unlikely(skb->len < dataSize))
    {
-      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_FATAL,
+      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_WARN,
                 "VPKT [%d]: pop exceeds packet size, len[%d], req[%d]",
                 __LINE__, skb->len, dataSize);
       return VOS_STATUS_E_INVAL;

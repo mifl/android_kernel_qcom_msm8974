@@ -1944,12 +1944,16 @@ v_U16_t hdd_wmm_select_queue(struct net_device * dev, struct sk_buff *skb)
             hdd_Ibss_GetStaId(&pAdapter->sessionCtx.station,
                                pDestMacAddress, pSTAId))
        {
-          VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+          *pSTAId = HDD_WLAN_INVALID_STA_ID;
+          if ( !vos_is_macaddr_broadcast( pDestMacAddress ) &&
+                             !vos_is_macaddr_group(pDestMacAddress))
+          {
+              VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
                      "%s: Failed to find right station pDestMacAddress: "
                      MAC_ADDRESS_STR , __func__,
                      MAC_ADDR_ARRAY(pDestMacAddress->bytes));
-          *pSTAId = HDD_WLAN_INVALID_STA_ID;
-          goto done;
+              goto done;
+          }
        }
    }
    // if we don't want QoS or the AP doesn't support Qos
@@ -2261,6 +2265,8 @@ VOS_STATUS hdd_wmm_connect( hdd_adapter_t* pAdapter,
    }
    else
    {
+      /* TODO: if a non-qos IBSS peer joins the group make qap and qosConnection false.
+       */
       qap = VOS_TRUE;
       qosConnection = VOS_TRUE;
       acmMask = 0x0;
