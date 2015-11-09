@@ -75,6 +75,8 @@
 #ifdef FEATURE_WLAN_TDLS
 #include "wlan_hdd_tdls.h"
 #endif
+#include "wlan_hdd_cfg80211.h"
+
 /*--------------------------------------------------------------------------- 
   Preprocessor definitions and constants
   -------------------------------------------------------------------------*/
@@ -209,6 +211,8 @@
 /* value should not be greater than PNO_MAX_SCAN_TIMERS */
 #define HDD_PNO_SCAN_TIMERS_SET_MULTIPLE 6
 #endif
+
+#define MAX_USER_COMMAND_SIZE 4096
 
 #define HDD_MAC_ADDR_LEN    6
 typedef v_U8_t tWlanHddMacAddr[HDD_MAC_ADDR_LEN];
@@ -790,7 +794,7 @@ typedef struct
     /*BSSID*/
     tANI_U8  bssid[SIR_MAC_ADDR_LEN];
     /*SSID*/
-    tANI_U8  ssid[SIR_MAX_SSID_SIZE];
+    tANI_U8  ssid[SIR_MAX_SSID_SIZE + 1];
     /*Channel*/
     tANI_U8  ch;
     /*RSSI or Level*/
@@ -833,7 +837,19 @@ struct hdd_adapter_s
 
    /** Handle to the network device */
    struct net_device *dev;
+
+#ifdef WLAN_NS_OFFLOAD
+   /** IPv6 notifier callback for handling NS offload on change in IP */
+   struct notifier_block ipv6_notifier;
+   bool ipv6_notifier_registered;
+   struct work_struct  ipv6NotifierWorkQueue;
+#endif
     
+   /** IPv4 notifier callback for handling ARP offload on change in IP */
+   struct notifier_block ipv4_notifier;
+   bool ipv4_notifier_registered;
+   struct work_struct  ipv4NotifierWorkQueue;
+
    //TODO Move this to sta Ctx
    struct wireless_dev wdev ;
    struct cfg80211_scan_request *request ; 
@@ -1126,6 +1142,8 @@ struct hdd_context_s
 
    volatile v_BOOL_t isLogpInProgress;
 
+   struct completion ssr_comp_var;
+
    v_BOOL_t isLoadUnloadInProgress;
    
    /**Track whether driver has been suspended.*/
@@ -1251,6 +1269,8 @@ struct hdd_context_s
    v_U16_t unsafeChannelList[NUM_20MHZ_RF_CHANNELS];
    v_U16_t safeChannelList[NUM_20MHZ_RF_CHANNELS];
 #endif /* FEATURE_WLAN_CH_AVOID */
+
+   v_BOOL_t btCoexModeSet;
 };
 
 
@@ -1330,9 +1350,15 @@ void hdd_reset_pwrparams(hdd_context_t *pHddCtx);
 int wlan_hdd_validate_context(hdd_context_t *pHddCtx);
 VOS_STATUS hdd_issta_p2p_clientconnected(hdd_context_t *pHddCtx);
 v_BOOL_t hdd_is_valid_mac_address(const tANI_U8* pMacAddr);
+void hdd_ipv4_notifier_work_queue(struct work_struct *work);
 #ifdef WLAN_FEATURE_PACKET_FILTERING
 int wlan_hdd_setIPv6Filter(hdd_context_t *pHddCtx, tANI_U8 filterType, tANI_U8 sessionId);
 #endif
+
+#ifdef WLAN_NS_OFFLOAD
+void hdd_ipv6_notifier_work_queue(struct work_struct *work);
+#endif
+
 #ifdef CONFIG_ENABLE_LINUX_REG
 void hdd_checkandupdate_phymode( hdd_context_t *pHddCtx);
 #endif
@@ -1377,5 +1403,7 @@ int hdd_handle_batch_scan_ioctl
 void hdd_deinit_batch_scan(hdd_adapter_t *pAdapter);
 
 #endif /*End of FEATURE_WLAN_BATCH_SCAN*/
+
+boolean hdd_is_5g_supported(hdd_context_t * pHddCtx);
 
 #endif    // end #if !defined( WLAN_HDD_MAIN_H )

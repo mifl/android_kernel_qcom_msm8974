@@ -314,6 +314,16 @@ typedef enum
 #define CFG_DOT11_MODE_DEFAULT                 eHDD_DOT11_MODE_11n
 #endif
 
+#define CFG_SAP_DOT11_MODE_NAME                "gSapDot11Mode"
+#define CFG_SAP_DOT11_MODE_MIN                 eHDD_DOT11_MODE_AUTO
+#ifdef WLAN_FEATURE_11AC
+#define CFG_SAP_DOT11_MODE_MAX                 eHDD_DOT11_MODE_11ac
+#define CFG_SAP_DOT11_MODE_DEFAULT             eHDD_DOT11_MODE_11ac
+#else
+#define CFG_SAP_DOT11_MODE_MAX                 eHDD_DOT11_MODE_11b_ONLY
+#define CFG_SAP_DOT11_MODE_DEFAULT             eHDD_DOT11_MODE_11n
+#endif
+
 #define CFG_CHANNEL_BONDING_MODE_24GHZ_NAME    "gChannelBondingMode24GHz"
 #define CFG_CHANNEL_BONDING_MODE_MIN           WNI_CFG_CHANNEL_BONDING_MODE_STAMIN 
 #define CFG_CHANNEL_BONDING_MODE_MAX           WNI_CFG_CHANNEL_BONDING_MODE_STAMAX 
@@ -993,6 +1003,26 @@ typedef enum
 #define CFG_TL_DELAYED_TRGR_FRM_INT_MAX                     (4294967295UL)
 #define CFG_TL_DELAYED_TRGR_FRM_INT_DEFAULT                 3000
 
+#define CFG_REORDER_TIME_BK_NAME                           "BkReorderTime"
+#define CFG_REORDER_TIME_BK_MIN                            30
+#define CFG_REORDER_TIME_BK_MAX                            1000
+#define CFG_REORDER_TIME_BK_DEFAULT                        300
+
+#define CFG_REORDER_TIME_BE_NAME                           "BeReorderTime"
+#define CFG_REORDER_TIME_BE_MIN                            30
+#define CFG_REORDER_TIME_BE_MAX                            1000
+#define CFG_REORDER_TIME_BE_DEFAULT                        300
+
+#define CFG_REORDER_TIME_VI_NAME                           "ViReorderTime"
+#define CFG_REORDER_TIME_VI_MIN                            30
+#define CFG_REORDER_TIME_VI_MAX                            1000
+#define CFG_REORDER_TIME_VI_DEFAULT                        300
+
+#define CFG_REORDER_TIME_VO_NAME                           "VoReorderTime"
+#define CFG_REORDER_TIME_VO_MIN                            30
+#define CFG_REORDER_TIME_VO_MAX                            1000
+#define CFG_REORDER_TIME_VO_DEFAULT                        40
+
 #if defined WLAN_FEATURE_VOWIFI
 #define CFG_RRM_ENABLE_NAME                              "gRrmEnable"
 #define CFG_RRM_ENABLE_MIN                               (0)
@@ -1222,9 +1252,11 @@ typedef enum
 #define CFG_NEIGHBOR_REASSOC_RSSI_THRESHOLD_DEFAULT           (83)
 
 #define CFG_NEIGHBOR_LOOKUP_RSSI_THRESHOLD_NAME      "gNeighborLookupThreshold"
-#define CFG_NEIGHBOR_LOOKUP_RSSI_THRESHOLD_MIN       (10)
+#define CFG_NEIGHBOR_LOOKUP_RSSI_THRESHOLD_MIN       (0)
 #define CFG_NEIGHBOR_LOOKUP_RSSI_THRESHOLD_MAX       (120)
-#define CFG_NEIGHBOR_LOOKUP_RSSI_THRESHOLD_DEFAULT   (78)
+#define CFG_NEIGHBOR_LOOKUP_RSSI_THRESHOLD_DEFAULT   (0) /*A Zero value indicates the host to calculate
+                                                           Adaptive thresold based on the minimum
+                                                           supported data rate.*/
 
 #define CFG_NEIGHBOR_SCAN_CHAN_LIST_NAME                      "gNeighborScanChannelList"
 #define CFG_NEIGHBOR_SCAN_CHAN_LIST_DEFAULT                   ""
@@ -1960,6 +1992,11 @@ This feature requires the dependent cfg.ini "gRoamPrefer5GHz" set to 1 */
 #define CFG_STRICT_5GHZ_PREF_BY_MARGIN_MAX             (60)
 #define CFG_STRICT_5GHZ_PREF_BY_MARGIN_DEFAULT         (0) //set 0 to disable
 
+#define CFG_ADVERTISE_CONCURRENT_OPERATION_NAME    "gAdvertiseConcurrentOperation"
+#define CFG_ADVERTISE_CONCURRENT_OPERATION_DEFAULT ( 1 )
+#define CFG_ADVERTISE_CONCURRENT_OPERATION_MIN     ( 0 )
+#define CFG_ADVERTISE_CONCURRENT_OPERATION_MAX     ( 1 )
+
 /*--------------------------------------------------------------------------- 
   Type declarations
   -------------------------------------------------------------------------*/ 
@@ -2207,6 +2244,10 @@ typedef struct
    v_U8_t                       WfqViWeight;
    v_U8_t                       WfqVoWeight;
    v_U32_t                      DelayedTriggerFrmInt;
+   v_U16_t                      BkReorderAgingTime;
+   v_U16_t                      BeReorderAgingTime;
+   v_U16_t                      ViReorderAgingTime;
+   v_U16_t                      VoReorderAgingTime;
 
    /* Wowl pattern */
    char                        wowlPattern[1024];         
@@ -2368,6 +2409,8 @@ typedef struct
    v_U32_t                     cfgBtcSapActiveWlanLen;
    v_U32_t                     cfgBtcSapActiveBtLen;
    v_U8_t                      nSelect5GHzMargin;
+   v_BOOL_t                    advertiseConcurrentOperation;
+   eHddDot11Mode               sapDot11Mode;
 } hdd_config_t;
 /*--------------------------------------------------------------------------- 
   Function declarations and documenation

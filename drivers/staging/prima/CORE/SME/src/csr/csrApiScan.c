@@ -872,7 +872,7 @@ eHalStatus csrScanRequest(tpAniSirGlobal pMac, tANI_U16 sessionId,
                         }
                         pChnInfo->numOfChannels = (tANI_U8)numChn;
                         p11dScanCmd->command = eSmeCommandScan;
-                        p11dScanCmd->u.scanCmd.callback = NULL;
+                        p11dScanCmd->u.scanCmd.callback = pMac->scan.callback11dScanDone;
                         p11dScanCmd->u.scanCmd.pContext = NULL;
                         p11dScanCmd->u.scanCmd.scanID = pMac->scan.nextScanID++;                
                         scanReq.BSSType = eCSR_BSS_TYPE_ANY;
@@ -4174,7 +4174,11 @@ tANI_BOOLEAN csrLearnCountryInformation( tpAniSirGlobal pMac, tSirBssDescription
             }
             /* reset info based on new cc, and we are done */
             csrResetCountryInformation(pMac, eANI_BOOLEAN_TRUE, eANI_BOOLEAN_TRUE);
-
+           /* Regulatory Domain Changed, Purge Only scan result
+            * which does not have channel number belong to 11d
+            * channel list
+            */
+            csrScanFilter11dResult(pMac);
         }
 #endif
         fRet = eANI_BOOLEAN_TRUE;
@@ -7858,6 +7862,13 @@ eHalStatus csrScanSavePreferredNetworkFound(tpAniSirGlobal pMac,
    pBssDescr->sinr = 0;
    pBssDescr->rssi = -1 * pPrefNetworkFoundInd->rssi;
    pBssDescr->beaconInterval = pParsedFrame->beaconInterval;
+ if (!pBssDescr->beaconInterval)
+   {
+      smsLog(pMac, LOGW,
+         FL("Bcn Interval is Zero , default to 100" MAC_ADDRESS_STR),
+         MAC_ADDR_ARRAY(pBssDescr->bssId) );
+      pBssDescr->beaconInterval = 100;
+   }
    pBssDescr->timeStamp[0]   = pParsedFrame->timeStamp[0];
    pBssDescr->timeStamp[1]   = pParsedFrame->timeStamp[1];
    pBssDescr->capabilityInfo = *((tANI_U16 *)&pParsedFrame->capabilityInfo);

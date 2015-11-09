@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -72,6 +72,7 @@
 #include "vos_nvitem.h"
 #include "sirApi.h"
 #include "wlan_qct_pal_packet.h"
+#include "wlan_qct_pal_device.h"
 #include "wlan_qct_wda.h"
 #include "wlan_qct_wda_msg.h"
 #include "wlan_qct_wdi_cfg.h"
@@ -5317,10 +5318,10 @@ VOS_STATUS WDA_ProcessGetRoamRssiReq(tWDA_CbContext *pWDA,
           VOS_TRACE( VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
                            "%s: VOS MEM Alloc Failure", __func__);
           VOS_ASSERT(0);
+          vos_mem_free(pGetRoamRssiParams);
+          vos_mem_free(pWdaParams);
           return VOS_STATUS_E_NOMEM;
       }
-      vos_mem_free(pGetRoamRssiParams);
-      vos_mem_free(pWdaParams);
       pGetRoamRssiRspParams->staId = pGetRoamRssiParams->staId;
       pGetRoamRssiRspParams->rc    = eSIR_FAILURE;
       pGetRoamRssiRspParams->rssi    = 0;
@@ -6490,6 +6491,114 @@ void WDA_SetMaxTxPowerCallBack(WDI_SetMaxTxPowerRspMsg * pwdiSetMaxTxPowerRsp,
    
 }
 #endif
+
+/*
+ * FUNCTION: WDA_SetMaxTxPowerPerBandCallBack
+ * send the response to PE with power value received from WDI
+ */
+void WDA_SetMaxTxPowerPerBandCallBack(WDI_SetMaxTxPowerPerBandRspMsg
+                                      *pwdiSetMaxTxPowerPerBandRsp,
+                                      void* pUserData)
+{
+   tWDA_ReqParams *pWdaParams = (tWDA_ReqParams *)pUserData;
+   tWDA_CbContext *pWDA = NULL;
+   tMaxTxPowerPerBandParams *pMxTxPwrPerBandParams = NULL;
+
+   VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_INFO,
+             "<------ %s ", __func__);
+   if (NULL == pWdaParams)
+   {
+      VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+                "%s: pWdaParams received NULL", __func__);
+      VOS_ASSERT(0);
+      return ;
+   }
+   pWDA = (tWDA_CbContext *) pWdaParams->pWdaContext;
+   pMxTxPwrPerBandParams = (tMaxTxPowerPerBandParams*)pWdaParams->wdaMsgParam;
+   if ( NULL == pMxTxPwrPerBandParams )
+   {
+      VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+                "%s: pMxTxPwrPerBandParams received NULL ", __func__);
+      VOS_ASSERT(0);
+      vos_mem_free(pWdaParams->wdaWdiApiMsgParam);
+      vos_mem_free(pWdaParams);
+      return;
+   }
+
+  /*need to free memory for the pointers used in the
+    WDA Process.Set Max Tx Power Req function*/
+   vos_mem_free(pWdaParams->wdaWdiApiMsgParam);
+   vos_mem_free(pWdaParams);
+   pMxTxPwrPerBandParams->power = pwdiSetMaxTxPowerPerBandRsp->ucPower;
+
+  /* send response to UMAC*/
+   WDA_SendMsg(pWDA, WDA_SET_MAX_TX_POWER_PER_BAND_RSP,
+               pMxTxPwrPerBandParams, 0);
+
+   return;
+}
+
+/*
+ * FUNCTION: WDA_ProcessSetMaxTxPowerPerBandReq
+ * Request to WDI to send set Max Tx Power Per band Request
+ */
+ VOS_STATUS WDA_ProcessSetMaxTxPowerPerBandReq(tWDA_CbContext *pWDA,
+                                               tMaxTxPowerPerBandParams
+                                               *MaxTxPowerPerBandParams)
+{
+   WDI_Status status = WDI_STATUS_SUCCESS;
+   WDI_SetMaxTxPowerPerBandParamsType *wdiSetMxTxPwrPerBandParams = NULL;
+   tWDA_ReqParams *pWdaParams = NULL;
+
+   VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_INFO,
+             "------> %s ", __func__);
+
+   wdiSetMxTxPwrPerBandParams = vos_mem_malloc(
+                                sizeof(WDI_SetMaxTxPowerPerBandParamsType));
+
+   if (NULL == wdiSetMxTxPwrPerBandParams)
+   {
+      VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+                "%s: VOS MEM Alloc Failure", __func__);
+      VOS_ASSERT(0);
+      return VOS_STATUS_E_NOMEM;
+   }
+   pWdaParams = (tWDA_ReqParams *)vos_mem_malloc(sizeof(tWDA_ReqParams));
+   if (NULL == pWdaParams)
+   {
+      VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+                "%s: VOS MEM Alloc Failure", __func__);
+      vos_mem_free(wdiSetMxTxPwrPerBandParams);
+      VOS_ASSERT(0);
+      return VOS_STATUS_E_NOMEM;
+   }
+   /* Copy.Max.Tx.Power.Per.Band Params to WDI structure */
+   wdiSetMxTxPwrPerBandParams->wdiMaxTxPowerPerBandInfo.bandInfo = \
+                               MaxTxPowerPerBandParams->bandInfo;
+   wdiSetMxTxPwrPerBandParams->wdiMaxTxPowerPerBandInfo.ucPower = \
+                               MaxTxPowerPerBandParams->power;
+   wdiSetMxTxPwrPerBandParams->wdiReqStatusCB = NULL;
+   pWdaParams->pWdaContext = pWDA;
+   pWdaParams->wdaMsgParam = (void *)MaxTxPowerPerBandParams;
+   /* store Params pass it to WDI */
+   pWdaParams->wdaWdiApiMsgParam = (void *)wdiSetMxTxPwrPerBandParams;
+   status = WDI_SetMaxTxPowerPerBandReq(wdiSetMxTxPwrPerBandParams,
+                                        WDA_SetMaxTxPowerPerBandCallBack,
+                                        pWdaParams);
+   if (IS_WDI_STATUS_FAILURE(status))
+   {
+      VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+                "Failure in SET MAX TX Power REQ Params WDI API,"
+                " free all the memory");
+      vos_mem_free(pWdaParams->wdaWdiApiMsgParam);
+      vos_mem_free(pWdaParams);
+      /* send response to UMAC*/
+      WDA_SendMsg(pWDA,
+                  WDA_SET_MAX_TX_POWER_PER_BAND_RSP,
+                  MaxTxPowerPerBandParams, 0);
+   }
+   return CONVERT_WDI2VOS_STATUS(status);
+}
 
 /*
  * FUNCTION: WDA_SetTxPowerCallBack
@@ -10438,7 +10547,22 @@ VOS_STATUS WDA_HALDumpCmdReq(tpAniSirGlobal   pMac, tANI_U32  cmd,
    VOS_STATUS vStatus;
    pVosContext = (pVosContextType)vos_get_global_context(VOS_MODULE_ID_PE,
                                                            (void *)pMac);
-   
+   if(pVosContext)
+   {
+      if (pVosContext->isLogpInProgress)
+      {
+         VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_FATAL,
+                                "%s:LOGP in Progress. Ignore!!!", __func__);
+         return VOS_STATUS_E_BUSY;
+      }
+   }
+   else
+   {
+      VOS_TRACE( VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+                          "%s: VOS Context Null", __func__);
+      return VOS_STATUS_E_RESOURCES;
+   }
+
    pWdaParams = (tWDA_ReqParams *)vos_mem_malloc(sizeof(tWDA_ReqParams)) ;
    if(NULL == pWdaParams)
    {
@@ -11131,7 +11255,7 @@ VOS_STATUS WDA_TxPacket(tWDA_CbContext *pWDA,
                                 after the packet gets completed(packet freed once)*/
 
       /* TX MGMT fail with COMP timeout, try to detect DXE stall */
-      WDA_TransportChannelDebug(pMac, 1, 0);
+      WDA_TransportChannelDebug(pMac, 1, WPAL_DEBUG_TX_DESC_RESYNC);
 
       /*Tag Frame as timed out for later deletion*/
       vos_pkt_set_user_data_ptr( (vos_pkt_t *)pFrmBuf, VOS_PKT_USER_DATA_ID_WDA, 
@@ -11684,6 +11808,12 @@ VOS_STATUS WDA_McProcessMsg( v_CONTEXT_t pVosContext, vos_msg_t *pMsg )
          break;
       }
 #endif
+      case WDA_SET_MAX_TX_POWER_PER_BAND_REQ:
+      {
+         WDA_ProcessSetMaxTxPowerPerBandReq(pWDA, (tMaxTxPowerPerBandParams *)
+                                            pMsg->bodyptr);
+         break;
+      }
       case WDA_SET_TX_POWER_REQ:
       {
          WDA_ProcessSetTxPowerReq(pWDA,
@@ -13437,6 +13567,8 @@ VOS_STATUS WDA_ProcessRoamScanOffloadReq(tWDA_CbContext *pWDA,
        pRoamOffloadScanReqParams->ConnectedNetwork.mcencryption);
    pwdiRoamOffloadScanInfo->LookupThreshold =
            pRoamOffloadScanReqParams->LookupThreshold ;
+   pwdiRoamOffloadScanInfo->RxSensitivityThreshold =
+           pRoamOffloadScanReqParams->RxSensitivityThreshold;
    pwdiRoamOffloadScanInfo->RoamRssiDiff =
            pRoamOffloadScanReqParams->RoamRssiDiff ;
    pwdiRoamOffloadScanInfo->MAWCEnabled =
@@ -14840,9 +14972,10 @@ VOS_STATUS WDA_ProcessUpdateOpMode(tWDA_CbContext *pWDA,
   PARAMETERS
     pMac : upper MAC context pointer
     displaySnapshot : Display DXE snapshot option
-    enableStallDetect : Enable stall detect feature
-                        This feature will take effect to data performance
-                        Not integrate till fully verification
+    debugFlags      : Enable stall detect features
+                      defined by WPAL_DeviceDebugFlags
+                      These features may effect
+                      data performance.
 
   RETURN VALUE
     NONE
@@ -14852,10 +14985,10 @@ void WDA_TransportChannelDebug
 (
   tpAniSirGlobal pMac,
   v_BOOL_t       displaySnapshot,
-  v_BOOL_t       toggleStallDetect
+  v_U8_t         debugFlags
 )
 {
-   WDI_TransportChannelDebug(displaySnapshot, toggleStallDetect);
+   WDI_TransportChannelDebug(displaySnapshot, debugFlags);
    return;
 }
 
