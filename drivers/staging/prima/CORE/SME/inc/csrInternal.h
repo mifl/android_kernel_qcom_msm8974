@@ -411,6 +411,8 @@ typedef struct tagScanCmd
         tCsrScanRequest   scanRequest;
         tCsrBGScanRequest bgScanRequest;
     }u;
+    //This flag will be set while aborting the scan due to band change
+    tANI_BOOLEAN            abortScanDueToBandChange;
 }tScanCmd;
 
 typedef struct tagRoamCmd
@@ -1140,7 +1142,7 @@ void csrScanSuspendIMPS( tpAniSirGlobal pMac );
 void csrScanResumeIMPS( tpAniSirGlobal pMac );
 
 eHalStatus csrInitGetChannels(tpAniSirGlobal pMac);
-eHalStatus csrScanFilter11dResult(tpAniSirGlobal pMac);
+eHalStatus csrScanFilterResults(tpAniSirGlobal pMac);
 
 eHalStatus csrSetModifyProfileFields(tpAniSirGlobal pMac, tANI_U32 sessionId,
                                      tCsrRoamModifyProfileFields *pModifyProfileFields);
