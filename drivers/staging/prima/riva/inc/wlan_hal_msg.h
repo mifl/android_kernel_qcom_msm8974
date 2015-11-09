@@ -441,6 +441,9 @@ typedef enum
    /* print register values */
    WLAN_HAL_PRINT_REG_INFO_IND              = 259, /* Assigned same value that of Master one */
 
+   WLAN_HAL_GET_BCN_MISS_RATE_REQ           = 260,
+   WLAN_HAL_GET_BCN_MISS_RATE_RSP           = 261,
+
   WLAN_HAL_MSG_MAX = WLAN_HAL_MSG_TYPE_MAX_ENUM_SIZE
 }tHalHostMsgType;
 
@@ -4046,7 +4049,7 @@ typedef PACKED_PRE struct PACKED_POST
     tANI_U8   bssid[6];     /* BSSID */
     tANI_U8   ssid[33];     /* SSID */
     tANI_U8   ch;           /* Channel */
-    tANI_U8   rssi;         /* RSSI or Level */
+    tANI_S8   rssi;         /* RSSI or Level */
     /* Timestamp when Network was found. Used to calculate age based on timestamp in GET_RSP msg header */
     tANI_U32  timestamp;
 } tHalBatchScanNetworkInfo, *tpHalBatchScanNetworkInfo;
@@ -6114,6 +6117,7 @@ typedef enum {
     WLAN_PERIODIC_TX_PTRN  = 28,
     ADVANCE_TDLS           = 29,
     BATCH_SCAN             = 30,
+    FW_IN_TX_PATH          = 31,
     EXTENDED_NSOFFLOAD_SLOT = 32,
     UPDATE_CHANNEL_LIST    = 35,
     MAX_FEATURE_SUPPORTED  = 128,
@@ -7014,6 +7018,24 @@ typedef PACKED_PRE struct PACKED_POST
    tHalMsgHeader header;
    tHalRegDebugInfoParams regParams;
 } tHalRegDebugInfoMsg, *tpRegDebugInfoMsg;
+
+/*---------------------------------------------------------------------------
+ * WLAN_HAL_GET_BCN_MISS_RATE_REQ
+ *--------------------------------------------------------------------------*/
+typedef PACKED_PRE struct PACKED_POST
+{
+   /* Valid STA Idx for per STA stats request */
+   tANI_U8    bssIdx;
+}tHalBcnMissRateReqParams, *tpHalBcnMissRateReqParams;
+
+/*---------------------------------------------------------------------------
+ * WLAN_HAL_GET_BCN_MISS_RATE_RSP
+ *--------------------------------------------------------------------------*/
+typedef PACKED_PRE struct PACKED_POST
+{
+   tANI_U32           status;
+   tANI_U32           bcnMissCnt;
+}tHalBcnMissRateRspParams, *tpHalBcnMissRateRspParams;
 
 #endif /* _WLAN_HAL_MSG_H_ */
 
