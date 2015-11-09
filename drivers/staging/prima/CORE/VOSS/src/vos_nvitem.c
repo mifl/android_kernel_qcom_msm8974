@@ -90,7 +90,6 @@ static char run_time_alpha2[2] = {0, 0}; /* country code from none-default count
 static v_BOOL_t crda_regulatory_entry_valid = VOS_FALSE;
 static v_BOOL_t crda_regulatory_run_time_entry_valid = VOS_FALSE;
 
-
 /*----------------------------------------------------------------------------
  * Preprocessor Definitions and Constants
  * -------------------------------------------------------------------------*/
@@ -1095,6 +1094,7 @@ VOS_STATUS vos_nv_open(void)
     v_BOOL_t itemIsValid = VOS_FALSE;
     v_U32_t dataOffset;
     sHalNv *pnvData = NULL;
+    hdd_context_t *pHddCtx = NULL;
 
     /*Get the global context */
     pVosContext = vos_get_global_context(VOS_MODULE_ID_SYS, NULL);
@@ -1267,8 +1267,8 @@ VOS_STATUS vos_nv_open(void)
     }
 
     VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-           "INFO: NV binary file version=%d Driver default NV version=%d, continue...\n",
-           gnvEFSTable->halnv.fields.nvVersion, WLAN_NV_VERSION);
+        "INFO: NV version = %d is loaded, driver supports NV version = %d",
+        gnvEFSTable->halnv.fields.nvVersion, WLAN_NV_VERSION);
 
      /* Copying the read nv data to the globa NV EFS table */
     {
@@ -1279,23 +1279,23 @@ VOS_STATUS vos_nv_open(void)
                (gnvEFSTable->halnv.fields.nvVersion == NV_VERSION_11N_11AC_COUPER_TYPE))
            {
                VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-                     "!!!WARNING: Using Coupler Type field instead of Fw Config table,\n"
-                     "Make sure that this is intented or may impact performance!!!\n");
+                   "INFO: Using Coupler Type field instead of FW Config table, "
+                   "make sure that this is intended or may impact performance.");
            }
 #ifdef FEATURE_WLAN_CH144
            else if ((WLAN_NV_VERSION == NV_VERSION_CH144_CONFIG) &&
                     (((VosContextType*)(pVosContext))->nvVersion == E_NV_V2))
            {
                VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-                     "!!!WARNING: Default NV is NV3 CH144 "
-                     "BIN is NV2, NV2 contents will be used!!!");
+                   "INFO: Driver supports NV3 CH144 by default, "
+                   "NV2 is currently loaded, NV2 will be used.");
            }
 #endif /* FEATURE_WLAN_CH144 */
            else
            {
                VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-                     "!!!WARNING: NV binary file version doesn't match with Driver default NV version\n"
-                     "Driver NV defaults will be used, may impact performance!!!\n");
+                   "INFO: NV loaded doesn't match with driver default NV, "
+                   "driver default NV will be used, may impact performance.");
 
                return VOS_STATUS_SUCCESS;
            }
@@ -1348,6 +1348,22 @@ VOS_STATUS vos_nv_open(void)
                 (v_VOID_t *)&pnvEFSTable->halnv.tables.defaultCountryTable,
                 NULL, sizeof(sDefaultCountry) ) !=  VOS_STATUS_SUCCESS)
                     goto error;
+            }
+            pHddCtx = vos_get_context(VOS_MODULE_ID_HDD, pVosContext);
+            if (NULL != pHddCtx)
+            {
+               if (!vos_mem_compare(pHddCtx->cfg_ini->overrideCountryCode,
+                     CFG_OVERRIDE_COUNTRY_CODE_DEFAULT, 3))
+               {
+                   vos_mem_copy(pnvEFSTable->halnv.tables.defaultCountryTable.countryCode,
+                       pHddCtx->cfg_ini->overrideCountryCode,
+                       3);
+               }
+            }
+            else
+            {
+                VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                           ("Invalid pHddCtx pointer") );
             }
         }
 
@@ -3062,6 +3078,27 @@ static int create_crda_regulatory_entry_from_regd(struct wiphy *wiphy,
   return 0;
 }
 
+/**------------------------------------------------------------------------
+  \brief vos_chan_to_freq -
+  \param   - input channel number to know channel frequency
+  \return Channel frequency
+  \sa
+  -------------------------------------------------------------------------*/
+v_U16_t vos_chan_to_freq(v_U8_t chanNum)
+{
+   int i;
+
+   for (i = 0; i < NUM_RF_CHANNELS; i++)
+   {
+      if (rfChannels[i].channelNum == chanNum)
+      {
+         return rfChannels[i].targetFreq;
+      }
+   }
+
+   return (0);
+}
+
 #ifdef CONFIG_ENABLE_LINUX_REG
 
 /**------------------------------------------------------------------------
@@ -3489,7 +3526,7 @@ int wlan_hdd_linux_reg_notifier(struct wiphy *wiphy,
 #endif
 {
     hdd_context_t *pHddCtx = wiphy_priv(wiphy);
-    tANI_U8 nBandCapability;
+    eCsrBand nBandCapability = eCSR_BAND_ALL;
     v_COUNTRYCODE_t country_code;
     int i;
     v_BOOL_t isVHT80Allowed;
@@ -3518,24 +3555,26 @@ int wlan_hdd_linux_reg_notifier(struct wiphy *wiphy,
 #endif
     }
 
-    if (pHddCtx->isLoadUnloadInProgress)
+    if (WLAN_HDD_IS_UNLOAD_IN_PROGRESS(pHddCtx))
     {
-        wiphy_dbg(wiphy, "info: %s: Unloading/Loading in Progress. Ignore!!!",
-                  __func__);
+       VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                   ("%s Unload is in progress"), __func__ );
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
         return;
 #else
         return 0;
 #endif
     }
+
+
+    sme_GetFreqBand(pHddCtx->hHal, &nBandCapability);
     /* first check if this callback is in response to the driver callback */
 
     if (request->initiator == NL80211_REGDOM_SET_BY_DRIVER)
     {
 
-        nBandCapability = pHddCtx->cfg_ini->nBandCapability;
         isVHT80Allowed = pHddCtx->isVHT80Allowed;
-        if (create_linux_regulatory_entry(wiphy, request, pHddCtx->cfg_ini->nBandCapability) == 0)
+        if (create_linux_regulatory_entry(wiphy, request, nBandCapability) == 0)
         {
 
             VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
@@ -3578,7 +3617,7 @@ int wlan_hdd_linux_reg_notifier(struct wiphy *wiphy,
         nBandCapability = pHddCtx->cfg_ini->nBandCapability;
         isVHT80Allowed = pHddCtx->isVHT80Allowed;
         if (create_linux_regulatory_entry(wiphy, request,
-                                          pHddCtx->cfg_ini->nBandCapability) == 0)
+                                          nBandCapability) == 0)
         {
             VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
                       (" regulatory entry created"));
@@ -3660,6 +3699,8 @@ VOS_STATUS vos_init_wiphy_from_nv_bin(void)
         reg_domain = pnvEFSTable->halnv.tables.defaultCountryTable.regDomain;
         wiphy->flags |= WIPHY_FLAG_STRICT_REGULATORY;
     }
+
+    temp_reg_domain = cur_reg_domain = reg_domain;
 
     m = 0;
     for (i = 0; i < IEEE80211_NUM_BANDS; i++)
@@ -3915,7 +3956,7 @@ int wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
     v_REGDOMAIN_t domainIdCurrent;
     tANI_U8 ccode[WNI_CFG_COUNTRY_CODE_LEN];
     tANI_U8 uBufLen = WNI_CFG_COUNTRY_CODE_LEN;
-    tANI_U8 nBandCapability;
+    eCsrBand nBandCapability = eCSR_BAND_ALL;
     int i,j,k,m;
 
     wiphy_dbg(wiphy, "info: cfg80211 reg_notifier callback for country"
@@ -3935,7 +3976,7 @@ int wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
        return 0;
 #endif
     }
-    if(pHddCtx->isLoadUnloadInProgress ||
+    if((WLAN_HDD_IS_UNLOAD_IN_PROGRESS(pHddCtx)) ||
         pHddCtx->isLogpInProgress)
     {
         VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
@@ -3951,6 +3992,8 @@ int wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
     {
        int status;
        wiphy_dbg(wiphy, "info: set by user\n");
+       memset(ccode, 0, WNI_CFG_COUNTRY_CODE_LEN);
+       memcpy(ccode, request->alpha2, 2);
        init_completion(&change_country_code);
        /* We will process hints by user from nl80211 in driver.
        * sme_ChangeCountryCode will set the country to driver
@@ -3966,7 +4009,7 @@ int wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
        status = sme_ChangeCountryCode(pHddCtx->hHal,
                                    (void *)(tSmeChangeCountryCallback)
                                    vos_nv_change_country_code_cb,
-                                   request->alpha2,
+                                   ccode,
                                    &change_country_code,
                                    pHddCtx->pvosContext,
                                    eSIR_FALSE,
@@ -3997,11 +4040,11 @@ int wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
        //sme_ChangeCountryCode(pHddCtx->hHal, NULL,
        //    &country_code[0], pAdapter, pHddCtx->pvosContext);
     }
-
+    sme_GetFreqBand(pHddCtx->hHal, &nBandCapability);
     if (request->initiator == NL80211_REGDOM_SET_BY_COUNTRY_IE)
     {
        wiphy_dbg(wiphy, "info: set by country IE\n");
-       if (create_crda_regulatory_entry(wiphy, request, pHddCtx->cfg_ini->nBandCapability) != 0)
+       if (create_crda_regulatory_entry(wiphy, request, nBandCapability) != 0)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
           return;
 #else
@@ -4046,7 +4089,6 @@ int wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
             settings. iwiphy->bands doesn't seem to set ht40 flags in kernel
             correctly, this may be fixed by later kernel */
 
-         nBandCapability = pHddCtx->cfg_ini->nBandCapability;
          for (i = 0, m = 0; i < IEEE80211_NUM_BANDS; i++)
          {
              if (NULL == wiphy->bands[i])
@@ -4117,7 +4159,17 @@ int wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
 
          /* Haven't seen any condition that will set by driver after init.
             If we do, then we should also call sme_ChangeCountryCode */
-         if (wiphy->bands[IEEE80211_BAND_5GHZ])
+
+         /* To Disable the strict regulatory FCC rule, need set
+            gEnableStrictRegulatoryForFCC to zero from INI.
+            By default regulatory FCC rule enable or set to 1, and
+            in this case one can control dynamically using IOCTL
+            (nEnableStrictRegulatoryForFCC).
+            If gEnableStrictRegulatoryForFCC is set to zero then
+            IOCTL operation is inactive                              */
+
+         if ( pHddCtx->cfg_ini->gEnableStrictRegulatoryForFCC &&
+              wiphy->bands[IEEE80211_BAND_5GHZ])
          {
              for (j=0; j<wiphy->bands[IEEE80211_BAND_5GHZ]->n_channels; j++)
              {

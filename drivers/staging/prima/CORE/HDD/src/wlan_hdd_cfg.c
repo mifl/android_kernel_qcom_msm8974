@@ -713,6 +713,13 @@ REG_TABLE_ENTRY g_registry_table[] =
                  CFG_AP_LINK_MONITOR_PERIOD_MIN,
                  CFG_AP_LINK_MONITOR_PERIOD_MAX),
 
+   REG_VARIABLE( CFG_GO_LINK_MONITOR_PERIOD_NAME, WLAN_PARAM_Integer,
+                 hdd_config_t, goLinkMonitorPeriod,
+                 VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+                 CFG_GO_LINK_MONITOR_PERIOD_DEFAULT,
+                 CFG_GO_LINK_MONITOR_PERIOD_MIN,
+                 CFG_GO_LINK_MONITOR_PERIOD_MAX),
+
    REG_VARIABLE(CFG_DISABLE_PACKET_FILTER , WLAN_PARAM_Integer,
                  hdd_config_t, disablePacketFilter,
                  VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
@@ -2833,6 +2840,54 @@ REG_VARIABLE( CFG_TDLS_PUAPSD_RX_FRAME_THRESHOLD, WLAN_PARAM_Integer,
                 CFG_SAP_DOT11_MODE_MIN,
                 CFG_SAP_DOT11_MODE_MAX ),
 
+   REG_VARIABLE( CFG_ENABLE_STRICT_REGULATORY_FOR_FCC_NAME, WLAN_PARAM_Integer,
+                hdd_config_t, gEnableStrictRegulatoryForFCC,
+                VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+                CFG_ENABLE_STRICT_REGULATORY_FOR_FCC_DEFAULT,
+                CFG_ENABLE_STRICT_REGULATORY_FOR_FCC_MIN,
+                CFG_ENABLE_STRICT_REGULATORY_FOR_FCC_MAX ),
+
+   REG_VARIABLE( CFG_DEBUG_P2P_REMAIN_ON_CHANNEL_NAME, WLAN_PARAM_Integer,
+                 hdd_config_t, debugP2pRemainOnChannel,
+                 VAR_FLAGS_OPTIONAL,
+                 CFG_DEBUG_P2P_REMAIN_ON_CHANNEL_DEFAULT,
+                 CFG_DEBUG_P2P_REMAIN_ON_CHANNEL_MIN,
+                 CFG_DEBUG_P2P_REMAIN_ON_CHANNEL_MAX ),
+
+#ifdef WLAN_LOGGING_SOCK_SVC_ENABLE
+   REG_VARIABLE( CFG_WLAN_LOGGING_SUPPORT_NAME, WLAN_PARAM_Integer,
+                 hdd_config_t, wlanLoggingEnable,
+                 VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+                 CFG_WLAN_LOGGING_SUPPORT_DEFAULT,
+                 CFG_WLAN_LOGGING_SUPPORT_DISABLE,
+                 CFG_WLAN_LOGGING_SUPPORT_ENABLE ),
+
+   REG_VARIABLE( CFG_WLAN_LOGGING_FE_CONSOLE_SUPPORT_NAME, WLAN_PARAM_Integer,
+                 hdd_config_t, wlanLoggingFEToConsole,
+                 VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+                 CFG_WLAN_LOGGING_FE_CONSOLE_SUPPORT_DEFAULT,
+                 CFG_WLAN_LOGGING_FE_CONSOLE_SUPPORT_DISABLE,
+                 CFG_WLAN_LOGGING_FE_CONSOLE_SUPPORT_ENABLE ),
+
+   REG_VARIABLE( CFG_WLAN_LOGGING_NUM_BUF_NAME, WLAN_PARAM_Integer,
+                 hdd_config_t, wlanLoggingNumBuf,
+                 VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+                 CFG_WLAN_LOGGING_NUM_BUF_DEFAULT,
+                 CFG_WLAN_LOGGING_NUM_BUF_MIN,
+                 CFG_WLAN_LOGGING_NUM_BUF_MAX ),
+#endif //WLAN_LOGGING_SOCK_SVC_ENABLE
+
+   REG_VARIABLE( CFG_ENABLE_DEBUG_CONNECT_ISSUE, WLAN_PARAM_Integer,
+              hdd_config_t, gEnableDebugLog,
+              VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+              CFG_ENABLE_DEBUG_CONNECT_ISSUE_DEFAULT,
+              CFG_ENABLE_DEBUG_CONNECT_ISSUE_MIN ,
+              CFG_ENABLE_DEBUG_CONNECT_ISSUE_MAX),
+
+   REG_VARIABLE_STRING( CFG_OVERRIDE_COUNTRY_CODE, WLAN_PARAM_String,
+                hdd_config_t, overrideCountryCode,
+                VAR_FLAGS_OPTIONAL,
+               (void *)CFG_OVERRIDE_COUNTRY_CODE_DEFAULT),
 };
 
 /*
@@ -3203,7 +3258,13 @@ static void print_hdd_cfg(hdd_context_t *pHddCtx)
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gAntennaDiversity] Value = [%u] ", pHddCtx->cfg_ini->antennaDiversity);
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gAmsduSupportInAMPDU] Value = [%lu] ",pHddCtx->cfg_ini->isAmsduSupportInAMPDU);
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [nSelect5GHzMargin] Value = [%lu] ",pHddCtx->cfg_ini->nSelect5GHzMargin);
+  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gGoLinkMonitorPeriod] Value = [%u]",pHddCtx->cfg_ini->goLinkMonitorPeriod);
+  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gApLinkMonitorPeriod] Value = [%u]",pHddCtx->cfg_ini->apLinkMonitorPeriod);
+  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gGoKeepAlivePeriod] Value = [%u]",pHddCtx->cfg_ini->goKeepAlivePeriod);
+  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gApKeepAlivePeriod]Value = [%u]",pHddCtx->cfg_ini->apKeepAlivePeriod);
 
+
+  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [overrideCountryCode] Value = [%s] ",pHddCtx->cfg_ini->overrideCountryCode);
 }
 
 
@@ -4026,6 +4087,14 @@ v_BOOL_t hdd_update_config_dat( hdd_context_t *pHddCtx )
         hddLog(LOGE, "Could not pass on WNI_CFG_AP_LINK_MONITOR_TIMEOUT to CCM\n");
      }
 
+     if (ccmCfgSetInt(pHddCtx->hHal, WNI_CFG_GO_LINK_MONITOR_TIMEOUT, pConfig->goLinkMonitorPeriod,
+        NULL, eANI_BOOLEAN_FALSE)==eHAL_STATUS_FAILURE)
+     {
+        fStatus = FALSE;
+        hddLog(LOGE, "Could not pass on WNI_CFG_GO_LINK_MONITOR_TIMEOUT to CCM\n");
+     }
+
+
 #if defined WLAN_FEATURE_VOWIFI
     if (ccmCfgSetInt(pHddCtx->hHal, WNI_CFG_RRM_ENABLED, pConfig->fRrmEnable,
                      NULL, eANI_BOOLEAN_FALSE)==eHAL_STATUS_FAILURE)
@@ -4448,6 +4517,17 @@ v_BOOL_t hdd_update_config_dat( hdd_context_t *pHddCtx )
        fStatus = FALSE;
        hddLog(LOGE, "Could not pass on WNI_BTC_ACTIVE_BT_LEN to CCM");
    }
+
+   if (ccmCfgSetInt(pHddCtx->hHal,
+                    WNI_CFG_DEBUG_P2P_REMAIN_ON_CHANNEL,
+                    pConfig->debugP2pRemainOnChannel,
+                    NULL, eANI_BOOLEAN_FALSE) == eHAL_STATUS_FAILURE)
+   {
+       fStatus = FALSE;
+       hddLog(LOGE,
+              "Could not pass on WNI_CFG_DEBUG_P2P_REMAIN_ON_CHANNEL to CCM");
+   }
+
    return fStatus;
 }
 
@@ -4654,10 +4734,13 @@ VOS_STATUS hdd_set_sme_config( hdd_context_t *pHddCtx )
    /* Update the Directed scan offload setting */
    smeConfig.fScanOffload =  pHddCtx->cfg_ini->fScanOffload;
 
+   smeConfig.fEnableDebugLog = pHddCtx->cfg_ini->gEnableDebugLog;
+
    halStatus = sme_UpdateConfig( pHddCtx->hHal, &smeConfig);
    if ( !HAL_STATUS_SUCCESS( halStatus ) )
    {
       status = VOS_STATUS_E_FAILURE;
+      hddLog(LOGE, "sme_UpdateConfig() return failure %d", halStatus);
    }
 
 

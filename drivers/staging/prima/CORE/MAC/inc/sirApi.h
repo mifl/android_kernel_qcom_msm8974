@@ -176,7 +176,7 @@ enum eSirHostMsgTypes
 enum {
     SIR_BOOT_MODULE_ID = 1,
     SIR_HAL_MODULE_ID  = 0x10,
-    SIR_CFG_MODULE_ID,
+    SIR_CFG_MODULE_ID = 0x12,
     SIR_LIM_MODULE_ID,
     SIR_ARQ_MODULE_ID,
     SIR_SCH_MODULE_ID,
@@ -466,6 +466,15 @@ typedef struct sSirRemainOnChnReq
     tANI_U8  isProbeRequestAllowed;
     tANI_U8  probeRspIe[1];
 }tSirRemainOnChnReq, *tpSirRemainOnChnReq;
+
+/* Structure for vendor specific IE of debug marker frame
+   to debug remain on channel issues */
+typedef struct publicVendorSpecific
+{
+    tANI_U8 category;
+    tANI_U8 elementid;
+    tANI_U8 length;
+} publicVendorSpecific;
 
 typedef struct sSirRegisterMgmtFrame
 {
@@ -3674,9 +3683,15 @@ typedef struct
   tSirScanTimer  aTimerValues[SIR_PNO_MAX_SCAN_TIMERS]; 
 } tSirScanTimersType;
 
+/*Pref Net Req status */
+typedef void(*PNOReqStatusCb)(void *callbackContext, VOS_STATUS status);
+
+
 typedef struct sSirPNOScanReq
 {
   tANI_U8             enable;
+  PNOReqStatusCb      statusCallback;
+  void                *callbackContext;
   eSirPNOMode         modePNO;
   tANI_U8             ucNetworksCount; 
   tSirNetworkType     aNetworks[SIR_PNO_MAX_SUPP_NETWORKS];
@@ -4414,6 +4429,7 @@ typedef struct sSirUpdateChanParam
 {
     tANI_U8 chanId;
     tANI_U8 pwr;
+    tANI_BOOLEAN dfsSet;
 } tSirUpdateChanParam, *tpSirUpdateChanParam;
 
 typedef struct sSirUpdateChan
