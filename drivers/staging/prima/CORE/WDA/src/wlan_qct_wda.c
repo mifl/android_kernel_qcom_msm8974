@@ -221,6 +221,9 @@ static VOS_STATUS WDA_ProcessGTKOffloadReq(tWDA_CbContext *pWDA, tpSirGtkOffload
 static VOS_STATUS WDA_ProcessGTKOffloadGetInfoReq(tWDA_CbContext *pWDA, tpSirGtkOffloadGetInfoRspParams pGtkOffloadGetInfoRsp);
 #endif // WLAN_FEATURE_GTK_OFFLOAD
 
+v_VOID_t WDA_ProcessGetBcnMissRateReq(tWDA_CbContext *pWDA,
+                                      tSirBcnMissRateReq *pData);
+
 VOS_STATUS WDA_ProcessSetTmLevelReq(tWDA_CbContext *pWDA,
                                     tAniSetTmLevelReq *setTmLevelReq);
 #ifdef WLAN_FEATURE_11AC
@@ -11360,7 +11363,7 @@ VOS_STATUS WDA_TxPacket(tWDA_CbContext *pWDA,
                            pWDATxRxCompFunc pCompFunc,
                            void *pData,
                            pWDAAckFnTxComp pAckTxComp,
-                           tANI_U8 txFlag)
+                           tANI_U32 txFlag)
 {
    VOS_STATUS status = VOS_STATUS_SUCCESS ;
    tpSirMacFrameCtl pFc = (tpSirMacFrameCtl ) pData;
@@ -12330,6 +12333,10 @@ VOS_STATUS WDA_McProcessMsg( v_CONTEXT_t pVosContext, vos_msg_t *pMsg )
           break;
       }
 #endif
+      case WDA_GET_BCN_MISS_RATE_REQ:
+          WDA_ProcessGetBcnMissRateReq(pWDA,
+                                      (tSirBcnMissRateReq *)pMsg->bodyptr);
+          break;
 
       default:
       {
@@ -15396,3 +15403,68 @@ VOS_STATUS WDA_ProcessLPHBConfReq(tWDA_CbContext *pWDA,
 }
 #endif /* FEATURE_WLAN_LPHB */
 
+void WDA_GetBcnMissRateCallback(tANI_U8 status, tANI_U32 bcnMissRate,
+                                void* pUserData)
+{
+   tSirBcnMissRateInfo *pBcnMissRateInfo = (tSirBcnMissRateInfo *)pUserData;
+
+   VOS_TRACE( VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_INFO,
+                                          "<------ %s " ,__func__);
+   if (NULL == pBcnMissRateInfo)
+   {
+      VOS_TRACE( VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+                "%s: pWdaParams received NULL", __func__);
+      VOS_ASSERT(0) ;
+      return ;
+   }
+   if (pBcnMissRateInfo->callback)
+   {
+       pBcnMissRateInfo->callback(status, bcnMissRate,
+                                  pBcnMissRateInfo->data);
+   }
+   vos_mem_free(pUserData);
+
+   return;
+}
+
+v_VOID_t WDA_ProcessGetBcnMissRateReq(tWDA_CbContext *pWDA,
+                                      tSirBcnMissRateReq *pData)
+{
+   WDI_Status wdiStatus;
+   tSirBcnMissRateInfo *pBcnMissRateInfo;
+
+   VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_INFO,
+             "------> %s " , __func__);
+
+   pBcnMissRateInfo =
+              (tSirBcnMissRateInfo *)vos_mem_malloc(sizeof(tSirBcnMissRateInfo));
+   if (NULL == pBcnMissRateInfo)
+   {
+      VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+                "%s: VOS MEM Alloc Failure", __func__);
+      VOS_ASSERT(0);
+      vos_mem_free(pData);
+      return;
+   }
+
+   pBcnMissRateInfo->callback = (pGetBcnMissRateCB)(pData->callback);
+   pBcnMissRateInfo->data     = pData->data;
+
+   wdiStatus = WDI_GetBcnMissRate(pBcnMissRateInfo,
+                                  WDA_GetBcnMissRateCallback,
+                                  pData->bssid);
+   if (WDI_STATUS_PENDING == wdiStatus)
+   {
+      VOS_TRACE(VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_INFO,
+              "Pending received for %s:%d ", __func__, __LINE__);
+   }
+   else if (WDI_STATUS_SUCCESS != wdiStatus)
+   {
+       if (pBcnMissRateInfo->callback)
+       {
+           pBcnMissRateInfo->callback(VOS_STATUS_E_FAILURE,
+                                      -1, pBcnMissRateInfo->data);
+       }
+   }
+   vos_mem_free(pData);
+}

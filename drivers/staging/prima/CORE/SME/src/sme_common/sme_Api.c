@@ -1801,6 +1801,66 @@ eHalStatus sme_SetCcxBeaconRequest(tHalHandle hHal, const tANI_U8 sessionId,
 #endif /* FEATURE_WLAN_CCX && FEATURE_WLAN_CCX_UPLOAD */
 
 
+/* ---------------------------------------------------------------------------
+    \fn sme_getBcnMissRate
+    \brief function sends 'WDA_GET_BCN_MISS_RATE_REQ' to WDA layer,
+    \param  hHal - HAL handle for device.
+    \param  sessionId - session ID.
+    \- return Success or Failure.
+    -------------------------------------------------------------------------*/
+
+eHalStatus sme_getBcnMissRate(tHalHandle hHal, tANI_U8 sessionId, void *callback, void *data)
+{
+    tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
+    VOS_STATUS vosStatus = VOS_STATUS_E_FAILURE;
+    vos_msg_t vosMessage;
+    tSirBcnMissRateReq *pMsg;
+    tCsrRoamSession *pSession;
+
+    if ( eHAL_STATUS_SUCCESS ==  sme_AcquireGlobalLock( &pMac->sme  ) )
+    {
+        pSession = CSR_GET_SESSION( pMac, sessionId );
+
+        if (!pSession)
+        {
+            smsLog(pMac, LOGE, FL("session %d not found"), sessionId);
+            sme_ReleaseGlobalLock( &pMac->sme );
+            return eHAL_STATUS_FAILURE;
+        }
+
+        pMsg = (tSirBcnMissRateReq *) vos_mem_malloc(sizeof(tSirTxPerTrackingParam));
+        if (NULL == pMsg)
+        {
+            smsLog(pMac, LOGE, FL("failed to allocated memory"));
+            sme_ReleaseGlobalLock( &pMac->sme );
+            return eHAL_STATUS_FAILURE;
+        }
+
+        vos_mem_copy(pMsg->bssid, pSession->connectedProfile.bssid,
+                 sizeof(tSirMacAddr));
+
+        pMsg->msgLen   = sizeof(tSirBcnMissRateReq);
+        pMsg->callback = callback;
+        pMsg->data     = data;
+
+        vosMessage.type = WDA_GET_BCN_MISS_RATE_REQ;
+        vosMessage.bodyptr = pMsg;
+        vosMessage.reserved = 0;
+        vosStatus = vos_mq_post_message( VOS_MQ_ID_WDA, &vosMessage );
+        if ( !VOS_IS_STATUS_SUCCESS(vosStatus) )
+        {
+           VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR,
+                     "%s: Post Set TM Level MSG fail", __func__);
+           vos_mem_free(pMsg);
+           sme_ReleaseGlobalLock( &pMac->sme );
+           return eHAL_STATUS_FAILURE;
+        }
+        sme_ReleaseGlobalLock( &pMac->sme);
+        return eHAL_STATUS_SUCCESS;
+    }
+    return eHAL_STATUS_FAILURE;
+}
+
 /*--------------------------------------------------------------------------
 
   \brief sme_ProcessMsg() - The main message processor for SME.
@@ -2097,9 +2157,6 @@ eHalStatus sme_ProcessMsg(tHalHandle hHal, vos_msg_t* pMsg)
           case eWNI_SME_TDLS_DEL_ALL_PEER_IND:
           case eWNI_SME_MGMT_FRM_TX_COMPLETION_IND:
           case eWNI_SME_TDLS_LINK_ESTABLISH_RSP:
-#ifdef FEATURE_WLAN_TDLS_OXYGEN_DISAPPEAR_AP
-          case eWNI_SME_TDLS_AP_DISAPPEAR_IND:
-#endif
 #ifdef FEATURE_WLAN_TDLS_INTERNAL
           case eWNI_SME_TDLS_DISCOVERY_START_RSP:
           case eWNI_SME_TDLS_DISCOVERY_START_IND:
@@ -3596,45 +3653,6 @@ eHalStatus sme_CfgSetStr(tHalHandle hHal, tANI_U32 cfgId, tANI_U8 *pStr,
    return(ccmCfgSetStr(hHal, cfgId, pStr, length, callback, toBeSaved));
 }
 
-/* ---------------------------------------------------------------------------
-    \fn sme_GetModifyProfileFields
-    \brief HDD or SME - QOS calls this function to get the current values of
-    connected profile fields, changing which can cause reassoc.
-    This function must be called after CFG is downloaded and STA is in connected
-    state. Also, make sure to call this function to get the current profile
-    fields before calling the reassoc. So that pModifyProfileFields will have
-    all the latest values plus the one(s) has been updated as part of reassoc
-    request.
-    \param pModifyProfileFields - pointer to the connected profile fields
-    changing which can cause reassoc
-
-    \return eHalStatus
-  -------------------------------------------------------------------------------*/
-eHalStatus sme_GetModifyProfileFields(tHalHandle hHal, tANI_U8 sessionId,
-                                     tCsrRoamModifyProfileFields * pModifyProfileFields)
-{
-   eHalStatus status = eHAL_STATUS_FAILURE;
-   tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
-
-   MTRACE(vos_trace(VOS_MODULE_ID_SME,
-              TRACE_CODE_SME_RX_HDD_GET_MODPROFFIELDS, sessionId, 0));
-   status = sme_AcquireGlobalLock( &pMac->sme );
-   if ( HAL_STATUS_SUCCESS( status ) )
-   {
-       if( CSR_IS_SESSION_VALID( pMac, sessionId ) )
-       {
-          status = csrGetModifyProfileFields(pMac, sessionId, pModifyProfileFields);
-       }
-       else
-       {
-          status = eHAL_STATUS_INVALID_PARAMETER;
-       }
-       sme_ReleaseGlobalLock( &pMac->sme );
-   }
-
-   return (status);
-}
-
 /*--------------------------------------------------------------------------
     \fn sme_SetConfigPowerSave
     \brief  Wrapper fn to change power save configuration in SME (PMC) module.
@@ -4378,7 +4396,11 @@ eHalStatus sme_RoamSetKey(tHalHandle hHal, tANI_U8 sessionId, tCsrRoamSetKey *pS
    }
    /*Once Setkey is done, we can go in BMPS*/
    if(pSetKey->keyLength)
+   {
      pMac->pmc.remainInPowerActiveTillDHCP = FALSE;
+     smsLog(pMac, LOG1, FL("Reset remainInPowerActiveTillDHCP"
+                           " to allow BMPS"));
+   }
 
    status = sme_AcquireGlobalLock( &pMac->sme );
    if ( HAL_STATUS_SUCCESS( status ) )
@@ -5086,12 +5108,36 @@ eHalStatus sme_InitChannels(tHalHandle hHal)
         return status;
     }
 
-    status = sme_AcquireGlobalLock(&pMac->sme);
-    if (HAL_STATUS_SUCCESS(status))
+    status = csrInitChannels(pMac);
+
+    return status;
+}
+
+/*-------------------------------------------------------------------------
+    \fn sme_InitChannelsForCC
+
+    \brief Used to issue regulatory hint to user
+
+    \param hHal - global pMac structure
+
+    \return eHalStatus  SUCCESS.
+
+                         FAILURE or RESOURCES  The API finished and failed.
+--------------------------------------------------------------------------*/
+
+eHalStatus sme_InitChannelsForCC(tHalHandle hHal)
+{
+    eHalStatus          status = eHAL_STATUS_FAILURE;
+    tpAniSirGlobal      pMac = PMAC_STRUCT(hHal);
+
+    if (NULL == pMac)
     {
-        status = csrInitChannels(pMac);
-        sme_ReleaseGlobalLock(&pMac->sme);
+        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_FATAL,
+            "%s: pMac is null", __func__);
+        return status;
     }
+    status = csrInitChannelsForCC(pMac);
+
     return status;
 }
 
