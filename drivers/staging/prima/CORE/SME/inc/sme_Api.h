@@ -121,6 +121,7 @@ typedef struct _smeConfigParams
     tANI_BOOLEAN  fScanOffload;
     tANI_U8  isAmsduSupportInAMPDU;
     tANI_U32       fEnableDebugLog;
+    tANI_U32      fDeferIMPSTime;
 } tSmeConfigParams, *tpSmeConfigParams;
 
 typedef enum
@@ -3209,4 +3210,5 @@ eHalStatus sme_UpdateConnectDebug(tHalHandle hHal, tANI_U32 set_value);
 
 eHalStatus sme_getBcnMissRate(tHalHandle, tANI_U8, void *, void *);
 
+tANI_BOOLEAN  sme_Is11dCountrycode(tHalHandle hHal);
 #endif //#if !defined( __SME_API_H )

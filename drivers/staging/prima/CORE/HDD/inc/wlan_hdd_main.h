@@ -313,6 +313,9 @@ typedef struct hdd_tx_rx_stats_s
    __u32    rxRefused;
    __u32    pkt_tx_count; //TX pkt Counter used for dynamic splitscan
    __u32    pkt_rx_count; //RX pkt Counter used for dynamic splitscan
+   // tx timeout stats
+   __u32    txTimeoutCount;
+   __u32    continuousTxTimeoutCount;
 } hdd_tx_rx_stats_t;
 
 typedef struct hdd_chip_reset_stats_s
@@ -1434,5 +1437,7 @@ void hdd_deinit_batch_scan(hdd_adapter_t *pAdapter);
 #endif /*End of FEATURE_WLAN_BATCH_SCAN*/
 
 boolean hdd_is_5g_supported(hdd_context_t * pHddCtx);
+
+int wlan_hdd_scan_abort(hdd_adapter_t *pAdapter);
 
 #endif    // end #if !defined( WLAN_HDD_MAIN_H )

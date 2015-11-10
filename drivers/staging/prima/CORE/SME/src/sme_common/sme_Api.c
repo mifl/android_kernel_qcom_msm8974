@@ -737,13 +737,18 @@ sme_process_cmd:
             {
                 pCommand = GET_BASE_ADDR( pEntry, tSmeCmd, Link );
 
-                //We cannot execute any command in wait-for-key state until setKey is through.
-                if( CSR_IS_WAIT_FOR_KEY( pMac, pCommand->sessionId ) )
+                /* Allow only disconnect command
+                 * in wait-for-key state until setKey is through.
+                 */
+                if( CSR_IS_WAIT_FOR_KEY( pMac, pCommand->sessionId ) &&
+                    !CSR_IS_DISCONNECT_COMMAND( pCommand ) )
                 {
                     if( !CSR_IS_SET_KEY_COMMAND( pCommand ) )
                     {
                         csrLLUnlock( &pMac->sme.smeCmdActiveList );
-                        smsLog(pMac, LOGE, "  Cannot process command(%d) while waiting for key", pCommand->command);
+                        smsLog(pMac, LOGE, FL("SessionId %d:  Cannot process "
+                               "command(%d) while waiting for key"),
+                               pCommand->sessionId, pCommand->command);
                         fContinue = eANI_BOOLEAN_FALSE;
                         goto sme_process_scan_queue;
                     }
@@ -806,6 +811,16 @@ sme_process_cmd:
 
                     // Insert the command onto the ActiveList...
                     csrLLInsertHead( &pMac->sme.smeCmdActiveList, &pCommand->Link, LL_ACCESS_NOLOCK );
+
+                    if( pMac->deferImps )
+                    {
+                        /* IMPS timer is already running so stop it and
+                         * it will get restarted when no command is pending
+                         */
+                        csrScanStopIdleScanTimer( pMac );
+                        pMac->scan.fRestartIdleScan = eANI_BOOLEAN_TRUE;
+                        pMac->deferImps = eANI_BOOLEAN_FALSE;
+                    }
 
                     // .... and process the command.
 
@@ -1410,6 +1425,8 @@ eHalStatus sme_UpdateConfig(tHalHandle hHal, tpSmeConfigParams pSmeConfigParams)
        }
    }
    pMac->fEnableDebugLog = pSmeConfigParams->fEnableDebugLog;
+   pMac->fDeferIMPSTime = pSmeConfigParams->fDeferIMPSTime;
+
    return status;
 }
 
@@ -2051,6 +2068,21 @@ eHalStatus sme_ProcessMsg(tHalHandle hHal, vos_msg_t* pMsg)
           case eWNI_SME_COEX_IND:
                 if(pMsg->bodyptr)
                 {
+                   tSirSmeCoexInd *pSmeCoexInd = (tSirSmeCoexInd *)pMsg->bodyptr;
+
+                   if (pSmeCoexInd->coexIndType == SIR_COEX_IND_TYPE_DISABLE_AGGREGATION_IN_2p4)
+                   {
+                       smsLog( pMac, LOG1, FL("SIR_COEX_IND_TYPE_DISABLE_AGGREGATION_IN_2p4"));
+                       sme_RequestFullPower(hHal, NULL, NULL, eSME_REASON_OTHER);
+                       pMac->isCoexScoIndSet = 1;
+                   }
+                   else if (pSmeCoexInd->coexIndType == SIR_COEX_IND_TYPE_ENABLE_AGGREGATION_IN_2p4)
+                   {
+                       smsLog( pMac, LOG1, FL("SIR_COEX_IND_TYPE_ENABLE_AGGREGATION_IN_2p4"));
+                       pMac->isCoexScoIndSet = 0;
+                       sme_RequestBmps(hHal, NULL, NULL);
+                   }
+
                    status = btcHandleCoexInd((void *)pMac, pMsg->bodyptr);
                    vos_mem_free(pMsg->bodyptr);
                 }
@@ -2530,7 +2562,7 @@ eHalStatus sme_ScanRequest(tHalHandle hHal, tANI_U8 sessionId, tCsrScanRequest *
     smsLog(pMac, LOG2, FL("enter"));
     do
     {
-        if(pMac->scan.fScanEnable)
+        if(pMac->scan.fScanEnable && (0 == pMac->isCoexScoIndSet))
         {
             status = sme_AcquireGlobalLock( &pMac->sme );
             if ( HAL_STATUS_SUCCESS( status ) )
@@ -2572,7 +2604,8 @@ eHalStatus sme_ScanRequest(tHalHandle hHal, tANI_U8 sessionId, tCsrScanRequest *
         } //if(pMac->scan.fScanEnable)
         else
         {
-            smsLog(pMac, LOGE, FL("fScanEnable FALSE"));
+            smsLog(pMac, LOGE, FL("fScanEnable %d isCoexScoIndSet: %d "),
+                     pMac->scan.fScanEnable, pMac->isCoexScoIndSet);
         }
     } while( 0 );
 
@@ -10341,3 +10374,18 @@ eHalStatus sme_UpdateConnectDebug(tHalHandle hHal, tANI_U32 set_value)
     return (status);
 }
 
+
+tANI_BOOLEAN  sme_Is11dCountrycode(tHalHandle hHal)
+{
+    tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
+
+    if (VOS_TRUE == vos_mem_compare(pMac->scan.countryCodeCurrent,
+                  pMac->scan.countryCode11d, 2))
+    {
+        return eANI_BOOLEAN_TRUE;
+    }
+    else
+    {
+        return eANI_BOOLEAN_FALSE;
+    }
+}

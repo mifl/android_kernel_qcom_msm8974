@@ -83,6 +83,7 @@ typedef enum
 #endif /* FEATURE_WLAN_CCX */
 #ifdef WLAN_FEATURE_11W
     eCSR_AUTH_TYPE_RSN_PSK_SHA256,
+    eCSR_AUTH_TYPE_RSN_8021X_SHA256,
 #endif
     eCSR_NUM_OF_SUPPORT_AUTH_TYPE,
     eCSR_AUTH_TYPE_FAILED = 0xff,
@@ -1138,6 +1139,7 @@ typedef struct tagCsrConfigParam
 
     tANI_U8 isAmsduSupportInAMPDU;
     tANI_U8 nSelect5GHzMargin;
+    tANI_BOOLEAN initialScanSkipDFSCh;
 
     tANI_BOOLEAN sendDeauthBeforeCon;
 }tCsrConfigParam;

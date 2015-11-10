@@ -267,7 +267,8 @@ typedef enum
    and TL is low on resources*/
   WLANTL_TX_RES_NEEDED  = 1,
 
-  /* Forwarding RX cached frames */
+  /* Forwarding RX cached frames. This is not used anymore as it is
+     replaced by WLANTL_RX_FWD_CACHED in RX thread*/
   WLANTL_TX_FWD_CACHED  = 2,
 
   /* Serialized STAID AC Indication */
@@ -282,8 +283,23 @@ typedef enum
   /* Serialized Snapshot request indication */
   WLANTL_TX_SNAPSHOT = 6,
 
+  /* Detected a fatal error issue SSR */
+  WLANTL_TX_FATAL_ERROR = 7,
+
   WLANTL_TX_MAX
 }WLANTL_TxSignalsType;
+
+
+/*---------------------------------------------------------------------------
+  TL signals for RX thread
+---------------------------------------------------------------------------*/
+typedef enum
+{
+
+  /* Forwarding RX cached frames */
+  WLANTL_RX_FWD_CACHED  = 0,
+
+}WLANTL_RxSignalsType;
 
 /*---------------------------------------------------------------------------
   STA Event type
@@ -497,13 +513,6 @@ typedef struct
      ID allowed */
   v_U8_t                        ucExists;
 
-  /*The flag controls the Rx path for the station - as long as there are
-    packets at sta level that need to be fwd-ed the Rx path will be blocked,
-    it will become unblocked only when the cached frames were fwd-ed;
-    while the rx path is blocked all rx-ed frames for that STA will be cached
-    */
-  v_U8_t                        ucRxBlocked;
-
   /* Function pointer to the receive packet handler from HDD */
   WLANTL_STARxCBType            pfnSTARx;
 
@@ -611,6 +620,8 @@ typedef struct
 
   WLANTL_CacheInfoType       tlCacheInfo;
   /* LWM related fields */
+
+  v_BOOL_t  enableCaching;
 
   //current station is slow. LWM mode is enabled.
   v_BOOL_t ucLwmModeEnabled;

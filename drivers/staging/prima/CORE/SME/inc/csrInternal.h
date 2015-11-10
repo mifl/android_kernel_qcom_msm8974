@@ -672,6 +672,7 @@ typedef struct tagCsrConfig
     tANI_U8 isAmsduSupportInAMPDU;
     tANI_U8 nSelect5GHzMargin;
     tANI_BOOLEAN sendDeauthBeforeCon;
+    tANI_BOOLEAN initialScanSkipDFSCh;
 }tCsrConfig;
 
 typedef struct tagCsrChannelPowerInfo

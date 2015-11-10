@@ -1986,6 +1986,7 @@ void dxeRXResourceAvailableTimerExpHandler
 )
 {
    WLANDXE_CtrlBlkType      *dxeCtxt    = NULL;
+   wpt_uint32               numRxFreePackets;
 
    dxeCtxt = (WLANDXE_CtrlBlkType *)usrData;
 
@@ -1993,7 +1994,30 @@ void dxeRXResourceAvailableTimerExpHandler
             "RX Low resource, Durign wait time period %d, RX resource not allocated",
             T_WLANDXE_MAX_RX_PACKET_WAIT);
 
-   if(0 != dxeCtxt)
+   //This API wil also try to replenish packets
+   wpalGetNumRxFreePacket(&numRxFreePackets);
+
+   if (numRxFreePackets > 0)
+   {
+      /* If no. of free packets is greater than 0, it means
+       * that some packets were replenished and can be used
+       * by DXE to receive frames. So try to restart the
+       * resourceAvailable timer here, it will be stopped
+       * by the DXE's low resource callback if atleast one
+       * free packet reaches DXE.
+       */
+      if (NULL != dxeCtxt)
+      {
+         HDXE_MSG(eWLAN_MODULE_DAL_DATA, eWLAN_PAL_TRACE_LEVEL_FATAL,
+                  "%s: Replenish successful. Restart the Rx Low resource timer",
+                  __func__);
+         wpalTimerStart(&dxeCtxt->rxResourceAvailableTimer,
+                        T_WLANDXE_MAX_RX_PACKET_WAIT);
+         return;
+      }
+   }
+
+   if (NULL != dxeCtxt)
       dxeCtxt->driverReloadInProcessing = eWLAN_PAL_TRUE;
 
    wpalWlanReload();
@@ -2798,7 +2822,7 @@ void dxeRXEventHandler
    WLANDXE_ChannelCBType    *channelCb  = NULL;
    wpt_uint32                chHighStat = 0;
    wpt_uint32                chLowStat  = 0;
-   wpt_uint32                regValue;
+   wpt_uint32                regValue, chanMask;
 
    dxeCtxt = (WLANDXE_CtrlBlkType *)(msgContent->pContext);
 
@@ -3007,7 +3031,8 @@ void dxeRXEventHandler
          wpalWlanReload();
          dxeStartSSRTimer(dxeCtxt);
       }
-      else if(WLANDXE_CH_STAT_INT_ED_MASK & chLowStat)
+      else if((WLANDXE_CH_STAT_INT_ED_MASK & chLowStat) ||
+               (WLANDXE_CH_STAT_INT_DONE_MASK & chLowStat))
       {
          /* Handle RX Ready for low priority channel */
          status = dxeRXFrameReady(dxeCtxt,
@@ -3040,8 +3065,19 @@ void dxeRXEventHandler
    {
       HDXE_ASSERT(0);
    }
+
+   if (dxeCtxt->rxPalPacketUnavailable &&
+       (WLANDXE_CH_STAT_INT_DONE_MASK & chHighStat))
+   {
+     chanMask = dxeCtxt->dxeChannel[WDTS_CHANNEL_RX_HIGH_PRI].extraConfig.chan_mask &
+                (~WLANDXE_CH_CTRL_INE_DONE_MASK);
+   }
+   else
+   {
+     chanMask = dxeCtxt->dxeChannel[WDTS_CHANNEL_RX_HIGH_PRI].extraConfig.chan_mask;
+   }
    wpalWriteRegister(dxeCtxt->dxeChannel[WDTS_CHANNEL_RX_HIGH_PRI].channelRegister.chDXECtrlRegAddr,
-                     dxeCtxt->dxeChannel[WDTS_CHANNEL_RX_HIGH_PRI].extraConfig.chan_mask);
+                     chanMask);
 
    /* Prepare Control Register EN Channel */
    if(!(dxeCtxt->dxeChannel[WDTS_CHANNEL_RX_LOW_PRI].extraConfig.chan_mask & WLANDXE_CH_CTRL_EN_MASK))
@@ -3049,8 +3085,19 @@ void dxeRXEventHandler
       HDXE_ASSERT(0);
    }
 
+   if (dxeCtxt->rxPalPacketUnavailable &&
+       (WLANDXE_CH_STAT_INT_DONE_MASK & chLowStat))
+   {
+     chanMask = dxeCtxt->dxeChannel[WDTS_CHANNEL_RX_LOW_PRI].extraConfig.chan_mask &
+                (~WLANDXE_CH_CTRL_INE_DONE_MASK);
+   }
+   else
+   {
+     chanMask = dxeCtxt->dxeChannel[WDTS_CHANNEL_RX_LOW_PRI].extraConfig.chan_mask;
+   }
    wpalWriteRegister(dxeCtxt->dxeChannel[WDTS_CHANNEL_RX_LOW_PRI].channelRegister.chDXECtrlRegAddr,
-                     dxeCtxt->dxeChannel[WDTS_CHANNEL_RX_LOW_PRI].extraConfig.chan_mask);
+                     chanMask);
+
 
    /* Clear Interrupt handle processing bit
     * RIVA may power down */
